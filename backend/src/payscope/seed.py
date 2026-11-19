@@ -4,12 +4,12 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from argon2 import PasswordHasher
-from sqlalchemy import ColumnElement, Table, func, literal_column, select, update
+from sqlalchemy import ColumnElement, Table, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from payscope.config import SeedSettings
-from payscope.database import create_database_engine
+from payscope.database import advance_report_revision, create_database_engine
 from payscope.logging import configure_logging, log_failure, logger
 from payscope.models import (
     countries,
@@ -19,7 +19,6 @@ from payscope.models import (
     employees,
     hr_users,
     job_titles,
-    report_state,
 )
 from payscope.seed_data import (
     CURRENCIES,
@@ -144,13 +143,7 @@ async def seed_database(engine: AsyncEngine, password: str) -> None:
                 salaries_changed,
             )
         ):
-            result = await connection.execute(
-                update(report_state)
-                .where(report_state.c.id == 1)
-                .values(revision=report_state.c.revision + 1, updated_at=func.now())
-                .returning(report_state.c.revision)
-            )
-            result.scalar_one()
+            await advance_report_revision(connection)
 
 
 async def main() -> None:

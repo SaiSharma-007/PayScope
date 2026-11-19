@@ -14,4 +14,12 @@ The API logs request IDs, route templates, status codes, and elapsed time to std
 
 The seed creates the `hr@payscope.example` account and fills in 10,000 fictional employees with localized names and annual salaries that vary by country and role. Re-running the seed preserves existing employees, salaries, and the account password. The report revision advances only when seeding inserts data used by reports.
 
-Run `uv run --locked pytest` for the tests. Set `TEST_DATABASE_URL` to a separate, empty PostgreSQL database to include the integration test. That test applies and rolls back the Alembic migration.
+## HR API
+
+Use HTTPS for browser sessions. Sign in with JSON at `POST /api/auth/sign-in`. The response sets the session cookie and returns a CSRF token. Hold the token in memory and recover it after a page reload with `GET /api/auth/session`. Send it in `X-CSRF-Token` for `POST /api/auth/sign-out` and salary writes. Sessions expire after eight hours by default, configurable with `SESSION_TTL_SECONDS`.
+
+Use `GET /api/employees` for search, filters, and pagination, `GET /api/employees/{employee_id}` for details, and `GET /api/reference-data` for filter and currency options. Read or replace a salary with `GET` or `PUT /api/employees/{employee_id}/salary`. Send the amount as a decimal string and the currency as its three-letter code. A missing current salary is returned as `null`. The request and response schemas are available at `/docs`.
+
+HR requests distinguish missing or expired sessions (`401`), invalid CSRF tokens (`403`), missing employees (`404`), and field validation errors (`422`).
+
+Run `uv run --locked pytest` for the tests. Set `TEST_DATABASE_URL` to a separate, empty PostgreSQL database to include the integration tests. They apply and roll back the Alembic migration.

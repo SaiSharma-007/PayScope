@@ -1,13 +1,18 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from payscope.auth.router import router as auth_router
 from payscope.config import Settings
 from payscope.database import check_database, create_database_engine
+from payscope.employees.router import router as employees_router
 from payscope.logging import RequestLoggingMiddleware, configure_logging, log_failure, logger
+from payscope.salaries.router import router as salaries_router
 
 
 @asynccontextmanager
@@ -15,9 +20,11 @@ async def lifespan(app: FastAPI):
     configure_logging()
     logging.getLogger("uvicorn.access").disabled = True
     try:
-        engine = create_database_engine(Settings())
+        settings = Settings()
+        engine = create_database_engine(settings)
         try:
             await check_database(engine)
+            app.state.settings = settings
             app.state.engine = engine
             app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
             logger.info("application.started")
@@ -32,6 +39,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PayScope", lifespan=lifespan)
 app.add_middleware(RequestLoggingMiddleware)
+api = APIRouter(prefix="/api")
+api.include_router(auth_router)
+api.include_router(employees_router)
+api.include_router(salaries_router)
+app.include_router(api)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_failure(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    errors = [{key: error[key] for key in ("loc", "msg", "type")} for error in exc.errors()]
+    return JSONResponse(
+        status_code=422, content={"detail": errors}, headers={"Cache-Control": "no-store"}
+    )
 
 
 @app.get("/health")

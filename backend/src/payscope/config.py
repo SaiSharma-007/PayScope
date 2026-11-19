@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     )
 
     database_url: SecretStr
+    session_ttl_seconds: int = Field(default=28_800, ge=60, le=86_400)
 
     @field_validator("database_url")
     @classmethod

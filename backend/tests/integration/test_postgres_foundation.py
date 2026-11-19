@@ -1,14 +1,11 @@
 import asyncio
-import os
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from alembic import command
-from alembic.config import Config
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
 
 from payscope.config import Settings
@@ -19,17 +16,6 @@ from payscope.seed import DEMO_HR_EMAIL, seed_database
 
 PASSWORD = "integration-test-password"
 EDITED_AMOUNT = Decimal("12345.67")
-
-
-async def require_empty_database() -> None:
-    engine = create_database_engine(Settings())
-    try:
-        async with engine.connect() as connection:
-            assert await connection.scalar(text("SELECT to_regnamespace('app') IS NULL")), (
-                "TEST_DATABASE_URL must point to a separate, empty PostgreSQL database"
-            )
-    finally:
-        await engine.dispose()
 
 
 async def check_constraints(connection, employee, salary):
@@ -126,19 +112,10 @@ async def verify_seed() -> None:
         await engine.dispose()
 
 
-@pytest.mark.skipif(not os.environ.get("TEST_DATABASE_URL"), reason="TEST_DATABASE_URL is unset")
-def test_postgres_foundation(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
-    asyncio.run(require_empty_database())
-    config = Config(Path(__file__).resolve().parents[2] / "alembic.ini")
-
-    command.upgrade(config, "head")
-    try:
-        command.check(config)
-        asyncio.run(verify_seed())
-        with TestClient(app) as client:
-            response = client.get("/health")
-        assert response.status_code == 200
-        assert response.json() == {"status": "ok"}
-    finally:
-        command.downgrade(config, "base")
+def test_postgres_foundation(migrated_database):
+    command.check(migrated_database)
+    asyncio.run(verify_seed())
+    with TestClient(app) as client:
+        response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
