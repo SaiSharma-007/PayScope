@@ -18,5 +18,6 @@ def test_health_reports_a_database_outage_and_disposes_engine(monkeypatch):
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}
+    assert response.headers["x-request-id"]
     assert database_check.await_count == 2
     dispose.assert_awaited_once()

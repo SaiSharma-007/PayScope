@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from payscope.config import SeedSettings
 from payscope.database import create_database_engine
+from payscope.logging import configure_logging, log_failure, logger
 from payscope.models import (
     countries,
     currencies,
@@ -156,11 +157,17 @@ async def main() -> None:
     settings = SeedSettings()
     engine = create_database_engine(settings)
     try:
+        logger.info("seed.started employees=%d", EMPLOYEE_COUNT)
         await seed_database(engine, settings.demo_hr_password.get_secret_value())
     finally:
         await engine.dispose()
-    print(f"Demo data ready for {DEMO_HR_EMAIL} and {EMPLOYEE_COUNT:,} employee codes.")
+    logger.info("seed.completed employees=%d", EMPLOYEE_COUNT)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    configure_logging()
+    try:
+        asyncio.run(main())
+    except Exception as exc:
+        log_failure("seed.failed", exc)
+        raise SystemExit(1) from None
