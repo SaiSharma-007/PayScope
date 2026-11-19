@@ -22,4 +22,8 @@ Use `GET /api/employees` for search, filters, and pagination, `GET /api/employee
 
 HR requests distinguish missing or expired sessions (`401`), invalid CSRF tokens (`403`), missing employees (`404`), and field validation errors (`422`).
 
-Run `uv run --locked pytest` for the tests. Set `TEST_DATABASE_URL` to a separate, empty PostgreSQL database to include the integration tests. They apply and roll back the Alembic migration.
+Use `GET /api/analytics/salary-summary` with optional `country_code`, `department_id`, `job_title_id`, and `group_by` (`country`, `department`, or `job_title`). The response includes the report revision and one row per currency and group. Rows within a currency are ordered by their calculated mean. Monetary fields are decimal strings rounded half-up to two places.
+
+Set `REDIS_URL` to enable the 60-second report cache. The cache stores only aggregates, with a 16 KiB limit per entry. The `X-Report-Cache` response header reports `hit`, `miss`, or `bypass`. Reports use PostgreSQL when Redis is unavailable. See the [10,000-employee performance check](../artifacts/design/backend-performance.md).
+
+Run `uv run --locked pytest` for the tests. Set `TEST_DATABASE_URL` to a separate, empty PostgreSQL database to include database integration tests. Also set `TEST_REDIS_URL` to a disposable Redis instance to exercise cache hits, rollovers, and fallback. The database tests apply and roll back the Alembic migration.

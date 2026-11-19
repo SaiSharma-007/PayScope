@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
@@ -10,7 +12,21 @@ class Settings(BaseSettings):
     )
 
     database_url: SecretStr
+    redis_url: SecretStr | None = None
     session_ttl_seconds: int = Field(default=28_800, ge=60, le=86_400)
+
+    @field_validator("redis_url")
+    @classmethod
+    def validate_redis_url(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None or not value.get_secret_value():
+            return None
+        try:
+            url = urlsplit(value.get_secret_value())
+            if url.scheme in {"redis", "rediss"} and url.hostname and url.port != 0:
+                return value
+        except ValueError:
+            pass
+        raise ValueError("REDIS_URL must be a redis:// or rediss:// connection URL")
 
     @field_validator("database_url")
     @classmethod

@@ -28,6 +28,7 @@ def migrated_database(monkeypatch):
     if not url:
         pytest.skip("TEST_DATABASE_URL is unset")
     monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setenv("REDIS_URL", "")
     asyncio.run(require_empty_database())
     config = Config(Path(__file__).resolve().parents[2] / "alembic.ini")
     command.upgrade(config, "head")

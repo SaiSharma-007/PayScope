@@ -3,6 +3,7 @@ from sqlalchemy import BigInteger, RowMapping, func, literal, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from payscope.employees.schemas import (
+    EmployeeDimensions,
     EmployeeFilters,
     EmployeePage,
     EmployeeResponse,
@@ -50,7 +51,7 @@ def employee_response(row: RowMapping) -> EmployeeResponse:
 
 
 async def list_employees(database: AsyncSession, filters: EmployeeFilters) -> EmployeePage:
-    matches = select(employees.c.id)
+    matches = select(employees.c.id).where(*employee_dimensions(filters))
     if filters.search:
         matches = matches.where(
             or_(
@@ -58,13 +59,6 @@ async def list_employees(database: AsyncSession, filters: EmployeeFilters) -> Em
                 employees.c.employee_code.icontains(filters.search, autoescape=True),
             )
         )
-    if filters.country_code is not None:
-        matches = matches.where(employees.c.country_code == filters.country_code.upper())
-    if filters.department_id is not None:
-        matches = matches.where(employees.c.department_id == filters.department_id)
-    if filters.job_title_id is not None:
-        matches = matches.where(employees.c.job_title_id == filters.job_title_id)
-
     matching_ids = matches.cte("matching_employees")
     page_ids = (
         select(matching_ids.c.id)
@@ -92,6 +86,18 @@ async def get_employee(database: AsyncSession, employee_id: int) -> EmployeeResp
     if row is None:
         raise missing_employee()
     return employee_response(row)
+
+
+def employee_dimensions(filters: EmployeeDimensions):
+    return [
+        column == value
+        for column, value in (
+            (employees.c.country_code, filters.country_code),
+            (employees.c.department_id, filters.department_id),
+            (employees.c.job_title_id, filters.job_title_id),
+        )
+        if value is not None
+    ]
 
 
 async def get_reference_data(database: AsyncSession) -> ReferenceData:

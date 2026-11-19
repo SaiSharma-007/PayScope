@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from payscope.analytics.cache import create_report_cache
+from payscope.analytics.router import router as analytics_router
 from payscope.auth.router import router as auth_router
 from payscope.config import Settings
 from payscope.database import check_database, create_database_engine
@@ -27,8 +29,14 @@ async def lifespan(app: FastAPI):
             app.state.settings = settings
             app.state.engine = engine
             app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
-            logger.info("application.started")
-            yield
+            report_cache = create_report_cache(settings)
+            app.state.report_cache = report_cache
+            try:
+                logger.info("application.started")
+                yield
+            finally:
+                if report_cache is not None:
+                    await report_cache.redis.aclose()
         finally:
             await engine.dispose()
     except Exception as exc:
@@ -40,6 +48,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PayScope", lifespan=lifespan)
 app.add_middleware(RequestLoggingMiddleware)
 api = APIRouter(prefix="/api")
+api.include_router(analytics_router)
 api.include_router(auth_router)
 api.include_router(employees_router)
 api.include_router(salaries_router)
