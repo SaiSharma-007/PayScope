@@ -1,0 +1,75 @@
+# Local agent scratch work
+.codex/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Python tooling and coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Node and Vite
+node_modules/
+.vite/
+.npm/
+.pnpm-store/
+dist-ssr/
+*.tsbuildinfo
+.eslintcache
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# Local databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+*.sqlite3
+*.sqlite3-journal
+
+# Logs and temporary files
+logs/
+*.log
+*.tmp
+*.temp
+
+# Editors and operating systems
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Keep uv.lock and package-lock.json under version control.
