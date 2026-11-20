@@ -124,6 +124,11 @@ def report_parameters(filters: CompensationFilters) -> dict:
 def compensation_population(group_by: Grouping, *, include_equity: bool = True) -> str:
     group_id, group_name = GROUP_COLUMNS[group_by]
     equity_cost = EQUITY_COST if include_equity else "NULL::numeric"
+    equity_configured = (
+        "q.employee_id IS NOT NULL OR n.employee_id IS NOT NULL"
+        if include_equity
+        else "false"
+    )
     equity_joins = (
         """
         LEFT JOIN equity q ON q.employee_id = p.employee_id
@@ -137,7 +142,8 @@ def compensation_population(group_by: Grouping, *, include_equity: bool = True) 
                    {group_id} AS group_id, {group_name} AS group_name,
                    coalesce(p.currency_code, s.currency_code) AS currency_code,
                    p.employee_id AS package_id, p.annual_basic_pay, p.guaranteed_cost, p.target_cost,
-                   p.effective_date, {equity_cost} AS equity_cost
+                   p.effective_date, {equity_cost} AS equity_cost,
+                   ({equity_configured}) AS equity_configured
             FROM app.employees e
             JOIN app.countries c ON c.code = e.country_code
             JOIN app.departments d ON d.id = e.department_id

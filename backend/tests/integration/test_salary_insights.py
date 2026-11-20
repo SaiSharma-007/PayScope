@@ -188,6 +188,17 @@ async def check_insights(monkeypatch):
             "currencies"
         ] == []
 
+        unconfigured, _ = await fetch(
+            api, "guaranteed_vs_target_ctc", country_code="IN"
+        )
+        [currency] = unconfigured["currencies"]
+        assert currency["eligible"] == 0
+        assert currency["missing_reasons"] == {
+            "no_effective_package": 1,
+            "equity_unconfigured": 4,
+            "missing_allocation": 0,
+        }
+
         for employee in (3, 4, 7):
             assert (
                 await api.put(
@@ -200,9 +211,18 @@ async def check_insights(monkeypatch):
         )
         option_id = await save_award(api, headers, 1, award("option"))
         await save_award(api, headers, 2, award("rsu", "10"))
-        await save_award(api, headers, 2, award("option"))
+        other_option = await save_award(api, headers, 2, award("option"))
+        async with app.state.engine.begin() as connection:
+            await connection.execute(
+                text("""
+                INSERT INTO app.equity_allocations (award_id, year, currency_code, amount)
+                VALUES (:award, :year, 'USD', 125)
+            """),
+                {"award": other_option, "year": YEAR},
+            )
         before, _ = await fetch(api, "guaranteed_vs_target_ctc", country_code="IN")
         assert before["currencies"][0]["eligible"] == 2
+        assert before["currencies"][0]["missing_reasons"]["missing_allocation"] == 2
         timeline, _ = await fetch(
             api, "equity_timeline", department_id=1, start_year=YEAR
         )
@@ -213,6 +233,10 @@ async def check_insights(monkeypatch):
             0,
         )
         assert (rsus["amount"], rsus["eligible"], rsus["population"]) == ("35.00", 2, 2)
+        assert (options["coverage_status"], rsus["coverage_status"]) == (
+            "missing",
+            "complete",
+        )
 
         response = await api.put(
             f"/api/employees/1/equity/awards/{option_id}",
@@ -224,6 +248,11 @@ async def check_insights(monkeypatch):
         assert status == "miss" and paired["revision"] == before["revision"] + 1
         [india] = paired["currencies"][0]["rows"]
         assert (india["eligible"], india["missing"]) == (3, 2)
+        assert india["missing_reasons"] == {
+            "no_effective_package": 1,
+            "equity_unconfigured": 0,
+            "missing_allocation": 1,
+        }
         assert (india["guaranteed_ctc"], india["target_ctc"]) == ("520.01", "580.01")
         bands, _ = await fetch(api, "role_bands", country_code="IN", metric="ctc")
         engineer, analyst = sorted(
@@ -306,6 +335,7 @@ async def check_insights(monkeypatch):
             1,
         )
         assert rsus["amount"] == "35.00"
+        assert options["coverage_status"] == "partial"
         assert (future["year"], future["kind"], future["amount"]) == (
             YEAR + 1,
             "rsu",

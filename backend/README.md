@@ -100,3 +100,34 @@ Headcount share uses the currency's full filtered population. Payroll share uses
 ```
 
 The response envelope includes `revision`, `insight`, `year`, `start_year`, `metric`, `group_by`, `employees`, `without_currency`, and `currencies`. Inapplicable fields are null. Amounts are decimal strings or null. The existing cache header, entry cap, and TTL apply. Normalized filters, view, grouping, and report revision determine cache keys.
+
+### CTC and equity coverage
+
+CTC metrics include `missing_reasons` on each currency and group. The counts add up to that row's `missing` count. Currency counts cover all filtered groups before the group limit. `no_effective_package` means there is no saved package effective by year-end. `equity_unconfigured` means the employee has neither an award nor a no-equity election. `missing_allocation` means at least one applicable award lacks an allocation in the package currency.
+
+For `?insight=guaranteed_vs_target_ctc&country_code=IN&year=2026`, a populated group can return these fields.
+
+```json
+{"group_id":"IN","population":5,"eligible":3,"missing":2,"guaranteed_ctc":"520.01","target_ctc":"580.01","missing_reasons":{"no_effective_package":1,"equity_unconfigured":0,"missing_allocation":1}}
+```
+
+When nobody in the group is eligible, both totals are null.
+
+```json
+{"group_id":"IN","population":5,"eligible":0,"missing":5,"guaranteed_ctc":null,"target_ctc":null,"missing_reasons":{"no_effective_package":1,"equity_unconfigured":4,"missing_allocation":0}}
+```
+
+Timeline rows include `coverage_status`. `complete` means every applicable award has a recorded amount. `partial` means the amount sums only the recorded allocations. `missing` means every applicable allocation is missing and `amount` is null. An exact recorded zero is `"0.00"` and counts toward `recorded_zero`. An absent year and award type combination means there were no applicable awards for that currency and filter.
+
+### Populate the fictional demo
+
+On a fresh demo database, apply the migrations and create the seeded workforce and packages with `uv run --locked python -m payscope.seed --compensation apply`. Newly created packages start at the beginning of the default five-year reporting window and include a fictional target bonus. Guaranteed company costs still match the original recorded totals.
+
+Run these commands against the demo environment.
+
+```sh
+uv run --locked python -m payscope.seed --equity preview
+uv run --locked python -m payscope.seed --equity apply
+```
+
+Preview reports the proposed no-equity, award, allocation, and intentionally unconfigured counts. Apply inserts the same cohorts into untouched demo packages with recognized demo rules and skips existing elections, awards, and edited packages. Rerunning apply inserts only newly eligible records. Existing demo packages keep their effective dates and target components. A package first effective in 2026 contributes to the timeline starting in 2026.

@@ -30,7 +30,12 @@ Insight = Literal[
 ]
 DISTRIBUTIONS = {"pay_distribution", "role_bands", "country_comparison"}
 PAYROLL = {"payroll_concentration", "headcount_vs_payroll"}
-INSIGHTS_NAMESPACE = "salary-insights:v1"
+INSIGHTS_NAMESPACE = "salary-insights:v2"
+CTC_EXCLUSIONS = {
+    "no_effective_package": "package_id IS NULL",
+    "equity_unconfigured": "package_id IS NOT NULL AND NOT equity_configured",
+    "missing_allocation": "package_id IS NOT NULL AND equity_configured AND equity_cost IS NULL",
+}
 
 
 class InsightFilters(CompensationFilters):
@@ -190,19 +195,26 @@ def grouped_insight_query(filters: InsightFilters) -> str:
         if filters.insight in PAYROLL
         else ""
     )
+    exclusion_counts = ""
+    currency_exclusions = ""
+    if filters.metric in {"ctc", "target_ctc"}:
+        for reason, condition in CTC_EXCLUSIONS.items():
+            exclusion_counts += f", count(*) FILTER (WHERE {condition}) AS {reason}"
+            currency_exclusions += f", sum({reason}) OVER (PARTITION BY currency_code) AS currency_{reason}"
+            fields += f", v.{reason}, v.currency_{reason}"
     return f"""
         , measured AS (
             SELECT *, {metric} AS value FROM population WHERE currency_code IS NOT NULL
         ), grouped AS (
             SELECT currency_code, group_id, group_name, count(*) AS population, count(value) AS eligible,
-                   {aggregates}
+                   {aggregates}{exclusion_counts}
             FROM measured GROUP BY currency_code, group_id, group_name
         ), ranked AS (
             SELECT *, row_number() OVER (PARTITION BY currency_code ORDER BY {order}) AS position,
                    count(*) OVER (PARTITION BY currency_code) AS group_count,
                    sum(population) OVER (PARTITION BY currency_code) AS currency_population,
                    sum(eligible) OVER (PARTITION BY currency_code) AS currency_eligible
-                   {payroll_total}
+                   {payroll_total}{currency_exclusions}
             FROM grouped
         ), visible AS (
             SELECT * FROM ranked WHERE position <= :limit
@@ -254,12 +266,27 @@ def build_insight_report(snapshot, filters: InsightFilters) -> dict:
     for row in snapshot["rows"]:
         code = row.pop("currency_code")
         currency = currencies.setdefault(code, {"currency_code": code, "rows": []})
-        if filters.insight != "equity_timeline":
+        if filters.insight == "equity_timeline":
+            row["coverage_status"] = (
+                "missing"
+                if not row["eligible"]
+                else "partial"
+                if row["missing"]
+                else "complete"
+            )
+        else:
             row.pop("position")
             currency["group_count"] = row.pop("group_count")
             currency["population"] = row.pop("currency_population")
             currency["eligible"] = row.pop("currency_eligible")
             currency["missing"] = currency["population"] - currency["eligible"]
+            if filters.metric in {"ctc", "target_ctc"}:
+                row["missing_reasons"] = {
+                    reason: row.pop(reason) for reason in CTC_EXCLUSIONS
+                }
+                currency["missing_reasons"] = {
+                    reason: row.pop(f"currency_{reason}") for reason in CTC_EXCLUSIONS
+                }
         if filters.insight in PAYROLL:
             total = row.pop("payroll_total")
             currency["payroll_total"] = total

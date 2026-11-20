@@ -7,7 +7,7 @@ from uuid import UUID, uuid5
 from sqlalchemy import select, text
 
 from payscope.compensation.calculator import calculate
-from payscope.compensation.schemas import Component, PackageDraft, RuleDraft
+from payscope.compensation.schemas import MAX_AMOUNT, Component, PackageDraft, RuleDraft
 from payscope.database import advance_report_revision
 from payscope.models import (
     compensation_package_components as lines,
@@ -76,12 +76,18 @@ PROFILES = {
 }
 
 
-def demo_rule(country: str) -> RuleDraft:
+def demo_version_id(country: str, *, with_target: bool) -> UUID:
+    prefix = "target-version" if with_target else "version"
+    return uuid5(NAMESPACE, f"{prefix}:{country}:1")
+
+
+def demo_rule(country: str, *, with_target: bool = False) -> RuleDraft:
     _, allowance, allowance_rate, employer, employer_rate, deduction_rate = PROFILES[
         country
     ]
     return RuleDraft(
-        name=f"{LOCATIONS[country].country} · Demo compensation",
+        name=f"{LOCATIONS[country].country} · Demo compensation"
+        + (" with targets" if with_target else ""),
         country_code=country,
         currency_code=LOCATIONS[country].currency,
         components=[
@@ -115,22 +121,53 @@ def demo_rule(country: str) -> RuleDraft:
             Component(
                 code="flexible_allowance", label="Flexible annual allowance", value="0"
             ),
-        ],
+        ]
+        + (
+            [
+                Component(
+                    code="demo_target_bonus",
+                    label="Target bonus (demo)",
+                    method="percent_of_base",
+                    value="5",
+                    commitment="target",
+                )
+            ]
+            if with_target
+            else []
+        ),
     )
 
 
-def demo_package(country: str, total: Decimal, effective_date: date):
-    rule = demo_rule(country)
+def demo_package(
+    country: str, total: Decimal, effective_date: date, *, with_target: bool = False
+):
+    rule = demo_rule(country, with_target=with_target)
     basic = max(
         Decimal("0.01"),
         (total * Decimal(PROFILES[country][0])).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         ),
     )
-    draft = PackageDraft(
-        annual_basic_pay=format(basic, ".2f"),
-        currency_code=rule.currency_code,
-        effective_date=effective_date,
+    overrides = []
+    if (
+        with_target
+        and (basic * Decimal("0.05")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        > MAX_AMOUNT - total
+    ):
+        overrides.append(
+            {
+                "code": "demo_target_bonus",
+                "amount": format(MAX_AMOUNT - total, ".2f"),
+                "reason": "Keep the fictional target total within the supported range.",
+            }
+        )
+    draft = PackageDraft.model_validate(
+        {
+            "annual_basic_pay": format(basic, ".2f"),
+            "currency_code": rule.currency_code,
+            "effective_date": effective_date,
+            "overrides": overrides,
+        }
     )
     calculated = calculate(draft, rule.components)
     remainder = total - calculated.guaranteed_cost
@@ -139,21 +176,23 @@ def demo_package(country: str, total: Decimal, effective_date: date):
     draft = PackageDraft.model_validate(
         draft.model_dump(mode="json")
         | {
-            "overrides": [
-                dict(
-                    code="flexible_allowance",
-                    amount=format(remainder, ".2f"),
-                    reason="Fictional allocation preserving the original recorded annual total.",
-                )
+            "overrides": overrides
+            + [
+                {
+                    "code": "flexible_allowance",
+                    "amount": format(remainder, ".2f"),
+                    "reason": "Fictional allocation preserving the original recorded annual total.",
+                }
             ]
         }
     )
     result = calculate(draft, rule.components)
-    assert result.guaranteed_cost == result.target_cost == total
+    assert result.guaranteed_cost == total
     return result
 
 
 async def seed_compensation(engine, *, apply=False):
+    effective_date = date(date.today().year - 4, 1, 1)
     async with engine.begin() as connection:
         if apply:
             await connection.execute(text("SELECT pg_advisory_xact_lock(714520019)"))
@@ -189,12 +228,12 @@ async def seed_compensation(engine, *, apply=False):
                 country,
                 {
                     "employees": 0,
-                    "original_total": Decimal("0"),
-                    "package_total": Decimal("0"),
+                    "original_total": Decimal(0),
+                    "package_total": Decimal(0),
                 },
             )
             calculation = demo_package(
-                country, record["annual_gross_base"], date(2026, 1, 1)
+                country, record["annual_gross_base"], effective_date, with_target=True
             )
             item["employees"] += 1
             item["original_total"] += record["annual_gross_base"]
@@ -208,9 +247,9 @@ async def seed_compensation(engine, *, apply=False):
             raise ValueError("Run the base seed before reframing compensation.")
         version_ids = {}
         for country in summary:
-            draft = demo_rule(country)
-            rule_id = uuid5(NAMESPACE, f"rule:{country}")
-            version_id = uuid5(NAMESPACE, f"version:{country}:1")
+            draft = demo_rule(country, with_target=True)
+            rule_id = uuid5(NAMESPACE, f"target-rule:{country}")
+            version_id = demo_version_id(country, with_target=True)
             existing = (
                 (
                     await connection.execute(
@@ -266,13 +305,14 @@ async def seed_compensation(engine, *, apply=False):
                 calculation = demo_package(
                     record["country_code"],
                     record["annual_gross_base"],
-                    date(2026, 1, 1),
+                    effective_date,
+                    with_target=True,
                 )
                 package_rows.append(
                     dict(
                         employee_id=record["id"],
                         version=1,
-                        effective_date=date(2026, 1, 1),
+                        effective_date=effective_date,
                         rule_version_id=version_ids[record["country_code"]],
                         updated_by=user_id,
                         **calculation.model_dump(

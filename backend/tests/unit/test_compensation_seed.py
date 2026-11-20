@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+
 from payscope.compensation.seed import PROFILES, demo_package, demo_rule
 from payscope.seed_data import generate_employees
 
@@ -35,3 +36,10 @@ def test_every_seeded_total_reconciles_and_generation_is_deterministic():
         count += 1
     assert count == 10000
     assert set(totals) == set(PROFILES)
+
+
+@pytest.mark.parametrize("total", [Decimal("10000.00"), Decimal("999999999.99")])
+def test_target_demo_bonus_preserves_guaranteed_total(total):
+    package = demo_package("IN", total, date(2022, 1, 1), with_target=True)
+    assert package.guaranteed_cost == total
+    assert package.target_cost == min(total * Decimal("1.03"), Decimal("999999999.99"))

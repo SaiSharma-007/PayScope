@@ -50,3 +50,16 @@ The equity timeline returned no award rows, so its repeat calls went to PostgreS
 `EXPLAIN (ANALYZE, BUFFERS)` measured server execution at 75 ms for distribution, 169 ms for mix, 42 ms for department payroll, and 34 ms for the empty equity timeline. For the unfiltered workforce, PostgreSQL scanned the employee and package tables and used the existing package-component index for mix.
 
 A separate local PostgreSQL 18 database with 10,000 synthetic packages, 4,999 awards, and 21,425 allocations exercised the populated plans. Over a five-year range, the equity timeline took 112 ms for all employees and 10 ms when filtered by country and department. The paired CTC query took 48 ms. Both used existing allocation indexes, and the filtered timeline used a bitmap scan on employees. The observed plans supported keeping the current indexes.
+
+## Demo equity and coverage
+
+The November 20, 2026 integration test created a fresh 10,000-employee demo in local PostgreSQL 18. Each sample was one service call after seeding and one immediate cache hit using the test's in-memory Redis substitute. Compact payloads include the new coverage fields.
+
+| View | Cold | Cache hit | Payload |
+| --- | ---: | ---: | ---: |
+| Guaranteed vs. target CTC | 43.8 ms | 3.7 ms | 2,169 bytes |
+| Equity timeline | 42.8 ms | 3.7 ms | 5,947 bytes |
+
+All five demo countries had eligible CTC and higher target totals on fresh packages. The timeline contained both award types over multiple reporting years. Both responses fit the 16 KiB entry cap.
+
+The configured demo backfill added 6,850 no-equity elections, 3,287 awards, and 6,195 allocations. A follow-up preview found zero records to insert. At reporting year 2026, 9,227 employees qualified for both CTC totals. The existing packages start in 2026 and have equal guaranteed and target totals, so the 2022–2026 timeline contains award rows in 2026 and the two CTC totals match. A single read-only service check from the desktop with the configured Redis measured 3,577 ms cold and 1,263 ms on a cache hit for paired CTC (2,169 bytes), and 2,916 ms cold and 1,089 ms on a hit for the equity timeline (1,422 bytes).

@@ -9,7 +9,7 @@ from sqlalchemy import ColumnElement, Table, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from payscope.config import SeedSettings
+from payscope.config import SeedSettings, Settings
 from payscope.database import advance_report_revision, create_database_engine
 from payscope.logging import configure_logging, log_failure, logger
 from payscope.models import (
@@ -163,12 +163,28 @@ async def main() -> None:
     parser = argparse.ArgumentParser(
         description="Seed fictional PayScope employees and compensation."
     )
-    parser.add_argument(
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument(
         "--compensation",
         choices=["preview", "apply"],
         help="Reframe missing demo packages, preserving each recorded total.",
     )
+    operation.add_argument(
+        "--equity",
+        choices=["preview", "apply"],
+        help="Preview or populate fictional equity for saved demo packages.",
+    )
     arguments = parser.parse_args()
+    if arguments.equity:
+        from payscope.compensation.equity_seed import seed_equity
+
+        engine = create_database_engine(Settings())
+        try:
+            result = await seed_equity(engine, apply=arguments.equity == "apply")
+            logger.info("seed.equity mode=%s counts=%s", arguments.equity, result)
+        finally:
+            await engine.dispose()
+        return
     settings = SeedSettings()
     engine = create_database_engine(settings)
     try:
