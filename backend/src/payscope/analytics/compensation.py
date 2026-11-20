@@ -1,5 +1,6 @@
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from hashlib import sha256
@@ -41,25 +42,50 @@ def amount(value: Decimal | None) -> str | None:
     )
 
 
-def report_key(cache: ReportCache, filters: CompensationFilters, revision: int) -> str:
+def report_key(
+    cache: ReportCache,
+    filters: CompensationFilters,
+    revision: int,
+    namespace: str = "compensation:v2",
+) -> str:
     digest = sha256(filters.model_dump_json().encode()).hexdigest()[:32]
-    return f"{cache.prefix}:compensation:v2:{revision}:{digest}"
+    return f"{cache.prefix}:{namespace}:{revision}:{digest}"
 
 
 async def get_compensation_report(
     database: AsyncSession, filters: CompensationFilters, cache: ReportCache | None
+):
+    return await get_cached_report(
+        database, filters, cache, calculate_compensation_report
+    )
+
+
+async def get_cached_report(
+    database: AsyncSession,
+    filters: CompensationFilters,
+    cache: ReportCache | None,
+    calculate: Callable[..., Awaitable[dict]],
+    namespace: str = "compensation:v2",
 ):
     if cache:
         revision = await database.scalar(CURRENT_REVISION)
         await database.rollback()
         try:
             async with asyncio.timeout(CACHE_TIMEOUT_SECONDS):
-                payload = await cache.redis.get(report_key(cache, filters, revision))
+                payload = await cache.redis.get(
+                    report_key(cache, filters, revision, namespace)
+                )
             if payload and len(payload) <= MAX_REPORT_BYTES:
-                return json.loads(payload), "hit"
-        except (RedisError, TimeoutError, ValueError):
+                cached = json.loads(payload)
+                if (
+                    isinstance(cached, dict)
+                    and cached.get("revision") == revision
+                    and isinstance(cached.get("currencies"), list)
+                ):
+                    return cached, "hit"
+        except RedisError, TimeoutError, ValueError:
             logger.warning("analytics.compensation_cache_read_unavailable")
-    report = await calculate_compensation_report(database, filters)
+    report = await calculate(database, filters)
     await database.rollback()
     if cache and report["currencies"]:
         encoded = json.dumps(report, separators=(",", ":")).encode()
@@ -67,11 +93,11 @@ async def get_compensation_report(
             try:
                 async with asyncio.timeout(CACHE_TIMEOUT_SECONDS):
                     await cache.redis.set(
-                        report_key(cache, filters, report["revision"]),
+                        report_key(cache, filters, report["revision"], namespace),
                         encoded,
                         ex=REPORT_CACHE_TTL,
                     )
-            except (RedisError, TimeoutError):
+            except RedisError, TimeoutError:
                 logger.warning("analytics.compensation_cache_write_unavailable")
     return report, "miss" if cache else "bypass"
 
@@ -95,31 +121,45 @@ def report_parameters(filters: CompensationFilters) -> dict:
     return filters.model_dump() | {"period_end": date(filters.year + 1, 1, 1)}
 
 
-async def calculate_compensation_report(
-    database: AsyncSession, filters: CompensationFilters
-):
-    group_id, group_name = GROUP_COLUMNS[filters.group_by]
-    metric = METRIC_COLUMNS[filters.metric]
-    result = await database.execute(
-        text(f"""
-        WITH equity AS ({EQUITY_BY_EMPLOYEE}), population AS (
+def compensation_population(group_by: Grouping, *, include_equity: bool = True) -> str:
+    group_id, group_name = GROUP_COLUMNS[group_by]
+    equity_cost = EQUITY_COST if include_equity else "NULL::numeric"
+    equity_joins = (
+        """
+        LEFT JOIN equity q ON q.employee_id = p.employee_id
+        LEFT JOIN app.equity_elections n ON n.employee_id = p.employee_id
+    """
+        if include_equity
+        else ""
+    )
+    return f"""
             SELECT e.id, e.country_code, c.name AS country_name,
                    {group_id} AS group_id, {group_name} AS group_name,
                    coalesce(p.currency_code, s.currency_code) AS currency_code,
                    p.employee_id AS package_id, p.annual_basic_pay, p.guaranteed_cost, p.target_cost,
-                   {EQUITY_COST} AS equity_cost
+                   p.effective_date, {equity_cost} AS equity_cost
             FROM app.employees e
             JOIN app.countries c ON c.code = e.country_code
             JOIN app.departments d ON d.id = e.department_id
             JOIN app.job_titles j ON j.id = e.job_title_id
             LEFT JOIN app.compensation_packages p ON p.employee_id = e.id AND p.effective_date < :period_end
             LEFT JOIN app.employee_salaries s ON s.employee_id = e.id
-            LEFT JOIN equity q ON q.employee_id = p.employee_id
-            LEFT JOIN app.equity_elections n ON n.employee_id = p.employee_id
+            {equity_joins}
             WHERE (CAST(:country_code AS text) IS NULL OR e.country_code = :country_code)
               AND (CAST(:department_id AS bigint) IS NULL OR e.department_id = :department_id)
               AND (CAST(:job_title_id AS bigint) IS NULL OR e.job_title_id = :job_title_id)
               AND (CAST(:currency_code AS text) IS NULL OR coalesce(p.currency_code, s.currency_code) = :currency_code)
+    """
+
+
+async def calculate_compensation_report(
+    database: AsyncSession, filters: CompensationFilters
+):
+    metric = METRIC_COLUMNS[filters.metric]
+    result = await database.execute(
+        text(f"""
+        WITH equity AS ({EQUITY_BY_EMPLOYEE}), population AS (
+            {compensation_population(filters.group_by)}
         ), measured AS (
             SELECT *, {metric} AS value FROM population WHERE currency_code IS NOT NULL
         ), ranked AS (

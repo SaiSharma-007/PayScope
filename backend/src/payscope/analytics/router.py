@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import func, select
 
 from payscope.analytics.compensation import CompensationFilters, get_compensation_report
+from payscope.analytics.insights import InsightFilters, get_salary_insight
 from payscope.analytics.schemas import ReportFilters, SalaryReport
 from payscope.analytics.service import get_salary_report
 from payscope.auth.router import require_session
@@ -23,6 +24,20 @@ async def compensation_summary(
     database: DatabaseSession,
 ):
     report, status = await get_compensation_report(
+        database, filters, request.app.state.report_cache
+    )
+    response.headers["X-Report-Cache"] = status
+    return report
+
+
+@router.get("/salary-insights")
+async def salary_insights(
+    filters: Annotated[InsightFilters, Query()],
+    request: Request,
+    response: Response,
+    database: DatabaseSession,
+) -> dict:
+    report, status = await get_salary_insight(
         database, filters, request.app.state.report_cache
     )
     response.headers["X-Report-Cache"] = status

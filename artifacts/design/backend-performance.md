@@ -29,3 +29,24 @@ The November 20 compensation report smoke benchmark used the configured PostgreS
 | 5 | Warm | 5 | 1,874 | 2,282 |
 
 The tested report occupied 5,986 payload bytes and 6,304 bytes per Redis key including overhead. Production report entries expire after 60 seconds and payloads larger than 16 KiB bypass storage. These small samples measure one report shape. They do not estimate service-wide Redis memory or production latency.
+
+## Salary Insights Plan 1
+
+Measured November 20, 2026 on the configured 10,000-employee PostgreSQL 17 dataset with 10,000 saved packages and no equity awards. The report service ran from the desktop using a read-only PostgreSQL transaction and short-lived, uniquely named Redis keys. Each row shows the median of three cold calls and three immediate repeat calls for the 2026 reporting year. Timings include remote database, savepoint, and Redis round trips. Payload sizes use the compact JSON stored by the report cache.
+
+| View | Cold median | Repeat median | Repeat hits | Payload bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Pay distribution | 2,409 ms | 1,141 ms | 3/3 | 1,605 |
+| Country comparison | 2,384 ms | 1,124 ms | 3/3 | 1,607 |
+| Role bands | 2,480 ms | 1,122 ms | 3/3 | 10,851 |
+| Compensation mix | 2,652 ms | 1,233 ms | 3/3 | 5,559 |
+| Guaranteed vs. target CTC | 2,361 ms | 1,119 ms | 3/3 | 1,196 |
+| Payroll concentration by department | 2,310 ms | 1,114 ms | 3/3 | 3,844 |
+| Headcount vs. payroll | 2,291 ms | 1,116 ms | 3/3 | 1,501 |
+| Equity timeline | 1,970 ms | 1,940 ms | 0/3 | 157 |
+
+The equity timeline returned no award rows, so its repeat calls went to PostgreSQL. The CTC sample primarily measures coverage because the dataset has no recorded awards. Isolated PostgreSQL fixtures exercise populated equity and CTC.
+
+`EXPLAIN (ANALYZE, BUFFERS)` measured server execution at 75 ms for distribution, 169 ms for mix, 42 ms for department payroll, and 34 ms for the empty equity timeline. For the unfiltered workforce, PostgreSQL scanned the employee and package tables and used the existing package-component index for mix.
+
+A separate local PostgreSQL 18 database with 10,000 synthetic packages, 4,999 awards, and 21,425 allocations exercised the populated plans. Over a five-year range, the equity timeline took 112 ms for all employees and 10 ms when filtered by country and department. The paired CTC query took 48 ms. Both used existing allocation indexes, and the filtered timeline used a bitmap scan on employees. The observed plans supported keeping the current indexes.

@@ -45,3 +45,58 @@ Components support `fixed` and `percent_of_base` methods, categories `earning`, 
 Preview the fictional country reframing with `uv run --locked python -m payscope.seed --compensation preview`, then apply with `uv run --locked python -m payscope.seed --compensation apply`. Each original total is preserved exactly, and existing packages are skipped, including HR-edited packages. Employee identities and old salary rows remain intact. Country rates and component names are illustrative demo assumptions. A flexible allowance balances the package to its original total, with an explicit reason. Normal application startup never seeds or recalculates data.
 
 To test against the configured `.env` database without Docker, set `RUN_CONFIGURED_DB_TESTS=1` and run `uv run --locked pytest tests/integration/test_compensation_configured_database.py`. This opt-in test creates temporary fixtures inside one transaction, permits API commits only through savepoints, and rolls back the entire transaction. It checks preservation of the employee count afterward. The existing `TEST_DATABASE_URL` suite is for a separate empty database and must not target the demo database.
+
+## Salary Insights API
+
+`GET /api/analytics/salary-insights?insight=pay_distribution&metric=basic&year=2026` returns one view per request. Use the HR session cookie. All views accept `country_code`, `department_id`, `job_title_id`, and `currency_code`. `year` defaults to the current calendar year. Historical years use the current saved package when it was effective by the end of the requested year.
+
+| Insight | Grouping | Metrics and row fields |
+| --- | --- | --- |
+| `pay_distribution` | Country, department, or job title | `basic` (default), `ctc`, `target_ctc`. Returns `percentiles` and `spread` (maximum minus minimum). |
+| `role_bands` | Job title | Same distribution and metrics. |
+| `country_comparison` | Country | Same distribution and metrics. Use `p50`, `spread`, and `eligible` for median, spread, and eligible headcount. |
+| `compensation_mix` | Country, department, or job title | `guaranteed` (default), `target`, `ctc`, `target_ctc`. Returns total `amount`, `categories`, and `components`. |
+| `guaranteed_vs_target_ctc` | Country, department, or job title | `ctc`. Returns `guaranteed_ctc` and `target_ctc` for the same employees. |
+| `payroll_concentration`, `headcount_vs_payroll` | Country, department, or job title | `guaranteed` (default), `target`, `ctc`, `target_ctc`. Returns `amount`, `headcount_share`, and `payroll_share`. |
+| `equity_timeline` | Calendar year and award kind | Set `start_year` and `year` for an inclusive range of up to 20 years. Defaults to up to five years ending at `year`, with 1900 as the earliest year. Rows use `kind` (`rsu` or `option`), `year`, `amount`, and award counts. |
+
+Grouped responses use `group_by=country` by default where grouping is selectable. Each currency has `population`, `eligible`, `missing`, `group_count`, and `rows`. Group rows repeat the coverage counts for that group and carry a string `group_id` plus `group_name`. Use `limit` (default 12, maximum 25) to bound rows per currency. Payroll results sort by descending cost, followed by group name and ID. Other views sort by group name and ID. Coverage and payroll denominators include every group in the filtered currency. Top-level `employees` counts the filtered workforce and `without_currency` counts employees whose currency could not be determined. Legacy salary rows can supply a currency for coverage. Pay values come from saved packages.
+
+Percentiles use linear interpolation at zero-based index `(eligible - 1) × percentile / 100` over sorted eligible pay. The API rounds at the end to cents, half up. Groups with one eligible employee have five equal percentiles and zero spread. Groups with zero eligible employees have null percentiles and spread. Filters with no known-currency employees return an empty `currencies` array.
+
+Guaranteed amounts include basic pay and guaranteed employer costs and earnings. Target adds included target components. CTC adds the same annual equity cost once per employee and excludes employees with unknown annual equity. Explicit no-equity elections have zero cost. Employee deductions and excluded components stay outside company cost. Mix components carry `category`, `commitment`, `code`, `label`, `amount`, and `component_count`. The 16 highest-cost components retain their codes. Any remainder rolls into a row with `code: null` per category and commitment. The category and component amounts reconcile to the group amount.
+
+Drill from country to department with `?insight=payroll_concentration&country_code=IN&group_by=department`, then to role by adding `department_id` and changing `group_by=job_title`. Shares are decimal-string percentages. For example, a group with 3 of 5 employees and INR 645.01 of INR 710.01 payroll returns this currency entry with `limit=1`.
+
+```json
+{
+  "currency_code": "INR",
+  "group_count": 3,
+  "population": 5,
+  "eligible": 4,
+  "missing": 1,
+  "payroll_total": "710.01",
+  "rows": [
+    {
+      "group_id": "1",
+      "group_name": "Engineering",
+      "population": 3,
+      "eligible": 3,
+      "missing": 0,
+      "amount": "645.01",
+      "headcount_share": "60.00",
+      "payroll_share": "90.85"
+    }
+  ]
+}
+```
+
+Headcount share uses the currency's full filtered population. Payroll share uses the currency's total eligible payroll and is null if the group's payroll is unknown or the denominator is zero. Each currency has its own amounts and denominators.
+
+`?insight=equity_timeline&department_id=1&start_year=2025&year=2026` returns only year/currency/kind combinations with applicable awards. The counts `population`, `eligible`, `missing`, and `recorded_zero` count awards within each row. An amount can be partial when some awards are missing an allocation. For example, one recorded zero and one missing stock-option allocation return this row.
+
+```json
+{"year":2025,"kind":"option","population":2,"eligible":1,"missing":1,"recorded_zero":1,"amount":"0.00"}
+```
+
+The response envelope includes `revision`, `insight`, `year`, `start_year`, `metric`, `group_by`, `employees`, `without_currency`, and `currencies`. Inapplicable fields are null. Amounts are decimal strings or null. The existing cache header, entry cap, and TTL apply. Normalized filters, view, grouping, and report revision determine cache keys.
