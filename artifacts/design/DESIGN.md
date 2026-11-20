@@ -210,7 +210,9 @@ Seeded packages use clearly named demo country rules and components. Each old am
 
 ### Theme preference behavior
 
-The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview shows live workforce coverage and links into country reports. Salary insights separates monetary comparisons by currency, pairs selectable range charts with exact-value tables, and shows country cost composition with expandable components. Activity is labeled as a preview. Settings is labeled Soon and unavailable.
+The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview shows live workforce coverage and links into country reports. Activity is labeled as a preview. Settings is labeled Soon and unavailable.
+
+Salary insights keeps the selected view, workforce filters, reporting period, and payroll drill-down in the URL. Each currency panel presents coverage, the chart, the selected group's figures, and an exact-values table from the same response. Horizontal charts use the range and median tokens. Cost and equity series reuse the range, median, and success tokens with text legends. Payroll tiles show the distribution among visible groups, with shares computed against the full filtered currency total. On narrow screens, the shared select replaces the view links, charts stack their labels, and exact values become labeled rows. The equity chart owns its horizontal scroll when the selected years exceed the available width.
 
 Resolve the saved preference before first paint and follow the device theme when no choice is saved. Apply `data-theme` and `color-scheme` together. Keep the switch labeled **Dark theme**, expose its checked state, and persist changes.
 

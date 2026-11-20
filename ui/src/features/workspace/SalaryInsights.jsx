@@ -1,448 +1,672 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import {
+  ArrowRight,
+  ChevronRight,
+  RotateCw,
+  SlidersHorizontal,
+} from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import SelectField from '../../components/SelectField'
 import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from '../compensation/Fields'
-import { money, useReferenceData } from '../compensation/shared'
+import { useReferenceData } from '../compensation/shared'
+import InsightChart from './InsightChart'
+import {
+  AWARDS,
+  CATEGORIES,
+  GROUPS,
+  METRICS,
+  VIEWS,
+  count,
+  formatValue,
+  insightColumns,
+  metricChoices,
+  seriesFor,
+} from './insightViews'
 import { useWorkspaceReport } from './useWorkspaceReport'
 import './reports.css'
 
-const choices = (values) => values.map(([value, label]) => ({ value, label }))
-const groupings = choices([
-  ['country', 'Country'],
-  ['department', 'Department'],
-  ['job_title', 'Job title'],
-])
-const metrics = choices([
-  ['basic', 'Basic pay'],
-  ['guaranteed', 'Guaranteed cash and benefits'],
-  ['target', 'Cash and benefits with targets'],
-  ['equity', 'Annual equity cost'],
-  ['ctc', 'Guaranteed annual CTC'],
-  ['target_ctc', 'Annual CTC with targets'],
-])
-const number = new Intl.NumberFormat('en')
-const percent = new Intl.NumberFormat('en', { maximumFractionDigits: 1 })
-const nameOf = (row) => row.group_name || 'All employees'
+const dimensions = [
+  ['country_code', 'Country', 'countries', 'code', 'All countries'],
+  ['department_id', 'Department', 'departments', 'id', 'All departments'],
+  ['job_title_id', 'Job title', 'job_titles', 'id', 'All job titles'],
+  ['currency_code', 'Currency', 'currencies', 'code', 'All currencies'],
+]
+const viewOptions = Object.entries(VIEWS).map(([value, [label]]) => ({
+  value,
+  label,
+}))
+const optionsFor = (keys, labels) =>
+  keys.map((value) => ({ value, label: labels[value] }))
+const groupOptions = optionsFor(Object.keys(GROUPS), GROUPS)
+const validYear = (value, min, max) =>
+  /^\d{4}$/.test(value) && Number(value) >= min && Number(value) <= max
 
-function Ranges({ rows, currency }) {
-  const [selected, setSelected] = useState(null)
-  const eligible = rows.filter((row) => row.headcount)
-  if (!eligible.length)
-    return (
-      <p className="comp-muted">No eligible compensation for this selection.</p>
-    )
-  const max = Math.max(...eligible.map((row) => Number(row.maximum)), 1)
-  const position = (value) => (Number(value) / max) * 100
+function YearField({ id, label, value, min = 1900, max = 9998, onChange }) {
+  const [invalid, setInvalid] = useState(false)
   return (
-    <div className="report-ranges">
-      <div className="range-axis">
-        <div>
-          <span>0 {currency}</span>
-          <span>{money(max, currency)}</span>
-        </div>
-      </div>
-      {eligible.map((row) => {
-        const open = selected === row.group_id
-        return (
-          <div key={row.group_id} className="report-range-row">
-            <button
-              type="button"
-              className="report-range-button"
-              aria-expanded={open}
-              onClick={() => setSelected(open ? null : row.group_id)}
-            >
-              <span>{nameOf(row)}</span>
-              <span className="range-track" aria-hidden="true">
-                <span
-                  className="range-span"
-                  style={{
-                    left: `${position(row.minimum)}%`,
-                    width: `${position(row.maximum) - position(row.minimum)}%`,
-                  }}
-                />
-                <span
-                  className="range-median"
-                  style={{ left: `${position(row.median)}%` }}
-                />
-              </span>
-              <strong>{money(row.median, currency)}</strong>
-            </button>
-            {open && (
-              <p className="comp-muted">
-                Range {money(row.minimum, currency)} to{' '}
-                {money(row.maximum, currency)}. {number.format(row.headcount)}{' '}
-                eligible employees.
-              </p>
-            )}
-          </div>
-        )
-      })}
+    <div className="comp-field">
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="number"
+        min={min}
+        max={max}
+        defaultValue={value}
+        inputMode="numeric"
+        enterKeyHint="done"
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        onBlur={(event) => {
+          const next = event.currentTarget.value
+          const valid = validYear(next, min, max)
+          setInvalid(!valid)
+          if (valid && next !== String(value)) onChange(next)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+        }}
+      />
+      {invalid && (
+        <small id={`${id}-error`} className="error-message">
+          Enter a year from {min} to {max}.
+        </small>
+      )}
     </div>
   )
 }
 
-function ReportTable({ rows, currency, skeletonRows = 0 }) {
-  const columns = [
-    ['minimum', 'Minimum'],
-    ['median', 'Median'],
-    ['maximum', 'Maximum'],
-    ['mean', 'Mean'],
-  ]
+function ViewPicker({ insight, viewSearch, onChange }) {
   return (
-    <table className="report-table" role="table">
-      <caption className="sr-only">
-        {currency ? `Exact compensation figures in ${currency}` : 'Exact compensation figures'}
-      </caption>
-      <thead role="rowgroup">
-        <tr role="row">
-          <th scope="col">Group</th>
-          {columns.map(([key, label]) => (
-            <th key={key} scope="col">
-              {label}
-            </th>
-          ))}
-          <th scope="col">Eligible / in group</th>
-        </tr>
-      </thead>
-      <tbody role="rowgroup" aria-hidden={skeletonRows ? true : undefined}>
-        {skeletonRows
-          ? Array.from({ length: skeletonRows }, (_, index) => (
-              <tr key={index}>
-                <th scope="row">
-                  <Skeleton width="5rem" />
-                </th>
-                {columns.map(([key, label]) => (
-                  <td key={key} data-label={label}>
-                    <Skeleton width="5rem" />
-                  </td>
-                ))}
-                <td data-label="Eligible / in group">
-                  <Skeleton width="3rem" />
-                </td>
-              </tr>
-            ))
-          : rows.map((row) => (
-              <tr key={row.group_id} role="row">
-                <th scope="row" role="rowheader">
-                  {nameOf(row)}
-                </th>
-                {columns.map(([key, label]) => (
-                  <td role="cell" data-label={label} key={key}>
-                    {row[key] == null ? '—' : money(row[key], currency)}
-                  </td>
-                ))}
-                <td role="cell" data-label="Eligible / in group">
-                  {number.format(row.headcount)} /{' '}
-                  {number.format(row.population)}
-                </td>
-              </tr>
-            ))}
-      </tbody>
-    </table>
+    <>
+      <nav className="insight-view-grid" aria-label="Salary insight views">
+        {Object.entries(VIEWS).map(([key, [label, Icon]]) => (
+          <Link
+            key={key}
+            to={{ search: viewSearch(key) }}
+            aria-current={insight === key ? 'page' : undefined}
+          >
+            <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
+      <div className="insight-view-select">
+        <SelectField
+          id="insight-view"
+          label="Insight view"
+          value={insight}
+          options={viewOptions}
+          onChange={onChange}
+        />
+      </div>
+    </>
   )
 }
 
-function ReportSkeleton({ previous }) {
-  const panels = previous?.length ? previous : [{ rows: [] }]
-  return panels.map(({ rows }, index) => (
-    <section className="panel report-landscape" key={index}>
-      <div className="comp-section-heading">
-        <span className="skeleton-stack">
-          <Skeleton width="14rem" height="1rem" />
-          <Skeleton width="10rem" />
-        </span>
+function Components({ row, currency }) {
+  if (!row.components.length) return null
+  return (
+    <details className="insight-components">
+      <summary>Components</summary>
+      <ul>
+        {row.components.map((line) => (
+          <li key={`${line.category}:${line.commitment}:${line.code}`}>
+            <span>
+              {line.label}
+              <small>
+                {CATEGORIES[line.category]} · {line.commitment}
+                {line.component_count > 1
+                  ? ` · ${line.component_count} codes`
+                  : ''}
+              </small>
+            </span>
+            <strong>{formatValue(line.amount, 'money', currency)}</strong>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function InsightTable({
+  rows,
+  columns,
+  currency,
+  type,
+  grouping,
+  loading,
+  onDrill,
+  drillLabel,
+}) {
+  const timeline = type === 'timeline'
+  return (
+    <div className="insight-table-wrap">
+      <table className="report-table" role="table">
+        <caption className="sr-only">
+          {currency ? `Exact values in ${currency}` : 'Exact values'}
+        </caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col">
+              {timeline ? 'Year and award type' : GROUPS[grouping]}
+            </th>
+            {columns.map(([label]) => (
+              <th key={label} scope="col">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody role="rowgroup" aria-hidden={loading || undefined}>
+          {loading
+            ? Array.from({ length: 4 }, (_, index) => (
+                <tr key={index} role="row">
+                  <th scope="row" role="rowheader">
+                    <Skeleton width="5.5rem" />
+                  </th>
+                  {columns.map(([label]) => (
+                    <td key={label} role="cell" data-label={label}>
+                      <Skeleton width="4rem" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            : rows.map((row) => (
+                <tr
+                  key={timeline ? `${row.year}:${row.kind}` : row.group_id}
+                  role="row"
+                >
+                  <th scope="row" role="rowheader">
+                    {timeline ? (
+                      <>
+                        {row.year} · {AWARDS[row.kind]}
+                      </>
+                    ) : (
+                      row.group_name
+                    )}
+                    {type === 'mix' && (
+                      <Components row={row} currency={currency} />
+                    )}
+                    {onDrill && (
+                      <button
+                        type="button"
+                        className="insight-text-button insight-table-drill"
+                        aria-label={`${drillLabel} in ${row.group_name}`}
+                        onClick={() => onDrill(row)}
+                      >
+                        {drillLabel} <ArrowRight size={14} aria-hidden="true" />
+                      </button>
+                    )}
+                  </th>
+                  {columns.map(([label, read, mode]) => (
+                    <td role="cell" data-label={label} key={label}>
+                      {formatValue(read(row), mode, currency)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ReportSkeleton({ type, columns, grouping }) {
+  return (
+    <section className="panel insight-panel" aria-hidden="true">
+      <div className="skeleton-stack">
+        <Skeleton width="5rem" height="1.5rem" />
+        <Skeleton width="15rem" />
       </div>
-      <div className="report-ranges" aria-hidden="true">
-        {Array.from({ length: Math.min(rows.length || 3, 4) }, (_, row) => (
-          <div key={row} className="report-range-button">
-            <Skeleton width="4rem" />
-            <Skeleton height="7px" />
-            <Skeleton width="5rem" />
-          </div>
+      <div className="insight-chart-placeholder" data-type={type}>
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton key={index} height="1rem" />
         ))}
       </div>
-      <ReportTable skeletonRows={Math.min(rows.length || 4, 8)} />
+      <InsightTable type={type} grouping={grouping} columns={columns} loading />
     </section>
-  ))
+  )
 }
 
-function Composition({ rows, withEquity }) {
+function CurrencyReport({
+  currency,
+  report,
+  type,
+  columns,
+  series,
+  onDrill,
+  drillLabel,
+}) {
+  const code = currency.currency_code
+  const timeline = type === 'timeline'
+  const eligible = timeline
+    ? currency.rows.reduce((sum, row) => sum + row.eligible, 0)
+    : currency.eligible
+  const missing = timeline
+    ? currency.rows.reduce((sum, row) => sum + row.missing, 0)
+    : currency.missing
+  const ready = timeline || eligible > 0 || type === 'shares'
+  const period =
+    timeline && report.start_year !== report.year
+      ? `${report.start_year}–${report.year}`
+      : report.year
   return (
-    <div className="report-composition">
-      {rows.map((row) => (
-        <article
-          key={`${row.country_code}:${row.currency_code}`}
-          className="report-country"
-        >
+    <section className="panel insight-panel" aria-label={`${code} report`}>
+      <div className="insight-panel-heading">
+        <div>
           <h3>
-            {row.country_name} <span>{row.currency_code}</span>
+            {code} <span>{period}</span>
           </h3>
-          <p className="comp-muted">
-            {number.format(row.eligible)}{' '}
-            {withEquity ? 'with complete CTC' : 'with a saved package'} ·{' '}
-            {number.format(row.population - row.eligible)} missing
+          <p>
+            {timeline
+              ? `${count.format(eligible)} recorded · ${count.format(missing)} missing ${missing === 1 ? 'allocation' : 'allocations'}`
+              : `${count.format(eligible)} of ${count.format(currency.population)} ${currency.population === 1 ? 'employee' : 'employees'} eligible · ${count.format(missing)} missing`}
           </p>
-          {row.eligible > 0 && (
-            <>
-              <p className="country-cost">
-                {money(row.total, row.currency_code)}
-              </p>
-              <div className="composition-bar" aria-hidden="true">
-                {row.categories.map((category) => (
-                  <span
-                    key={category.category}
-                    data-category={category.category}
-                    style={{ flex: Number(category.amount) }}
-                  />
-                ))}
-              </div>
-              <ul>
-                {row.categories.map((category) => (
-                  <li key={category.category}>
-                    <span>{category.label}</span>
-                    <strong>{percent.format(category.share)}%</strong>
-                  </li>
-                ))}
-              </ul>
-              <details>
-                <summary>Component details</summary>
-                <ul>
-                  {row.components.map((component) => (
-                    <li
-                      key={`${component.category}:${component.code}:${component.label}`}
-                    >
-                      <span>
-                        {component.label}
-                        <small>
-                          {number.format(component.recorded)} recorded ·{' '}
-                          {number.format(component.zero)} zero ·{' '}
-                          {number.format(row.eligible - component.recorded)}{' '}
-                          absent
-                        </small>
-                      </span>
-                      <strong>
-                        {money(component.amount, row.currency_code)}
-                      </strong>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </>
-          )}
-        </article>
-      ))}
-    </div>
+        </div>
+        {currency.payroll_total != null && (
+          <div className="insight-total">
+            <span>Eligible payroll</span>
+            <strong>
+              {formatValue(currency.payroll_total, 'money', code)}
+            </strong>
+          </div>
+        )}
+      </div>
+      {!ready && (
+        <p className="insight-incomplete">
+          No complete values for this selection.{' '}
+          <Link to="/employees">Review employee compensation</Link> or adjust
+          the filters.
+        </p>
+      )}
+      {timeline && missing > 0 && (
+        <p className="insight-incomplete">
+          Totals reflect recorded allocations.{' '}
+          <Link to="/employees">Review missing allocations</Link>.
+        </p>
+      )}
+      {type === 'shares' && eligible === 0 && (
+        <p className="insight-incomplete">
+          Payroll is unavailable for these groups.{' '}
+          <Link to="/employees">Review employee compensation</Link> or adjust
+          the filters.
+        </p>
+      )}
+      {ready && (
+        <InsightChart
+          type={type}
+          rows={currency.rows}
+          currency={code}
+          columns={columns}
+          series={series}
+          startYear={report.start_year}
+          year={report.year}
+          onDrill={onDrill}
+          drillLabel={drillLabel}
+        />
+      )}
+      {currency.group_count > currency.rows.length && (
+        <p className="insight-coverage-note">
+          Showing {count.format(currency.rows.length)} of{' '}
+          {count.format(currency.group_count)} groups. Narrow the filters to see
+          more.
+        </p>
+      )}
+      <div className="insight-table-heading">
+        <h4>Exact values</h4>
+        {missing > 0 && <small>— indicates an unavailable value</small>}
+      </div>
+      <InsightTable
+        rows={currency.rows}
+        columns={columns}
+        currency={code}
+        type={type}
+        grouping={report.group_by}
+        onDrill={onDrill}
+        drillLabel={drillLabel}
+      />
+    </section>
   )
 }
 
 export default function SalaryInsights() {
   const [params, setParams] = useSearchParams()
   const reference = useReferenceData()
-  const query = new URLSearchParams()
-  for (const key of [
-    'country_code',
-    'department_id',
-    'job_title_id',
-    'currency_code',
-    'group_by',
-    'metric',
-    'year',
-  ])
-    if (params.get(key)) query.set(key, params.get(key))
-  const { data, loading, error, retry } = useWorkspaceReport(
-    `/analytics/compensation?${query}`,
-  )
-  const withEquity = ['equity', 'ctc', 'target_ctc'].includes(data?.metric)
-  const currentYear = new Date().getFullYear()
-  const filters = [
-    [
-      'country_code',
-      'Country',
-      reference.data?.countries,
-      'code',
-      'All countries',
-    ],
-    [
-      'department_id',
-      'Department',
-      reference.data?.departments,
-      'id',
-      'All teams',
-    ],
-    [
-      'job_title_id',
-      'Job title',
-      reference.data?.job_titles,
-      'id',
-      'All job titles',
-    ],
-    [
-      'currency_code',
-      'Currency',
-      reference.data?.currencies,
-      'code',
-      'All currencies',
-    ],
-  ]
+  const reportTitle = useRef(null)
+  const requested = params.get('insight')
+  const insight = Object.hasOwn(VIEWS, requested)
+    ? requested
+    : 'pay_distribution'
+  const [title, , type, fixedGroup] = VIEWS[insight]
+  const timeline = type === 'timeline'
+  const metrics = metricChoices(type)
+  const requestedMetric = params.get('metric')
+  const metric = metrics.includes(requestedMetric)
+    ? requestedMetric
+    : metrics[0]
+  const requestedGroup = params.get('group_by')
+  const grouping =
+    fixedGroup ||
+    (Object.hasOwn(GROUPS, requestedGroup) ? requestedGroup : 'country')
+  const requestedYear = params.get('year')
+  const year = validYear(requestedYear, 1900, 9998)
+    ? Number(requestedYear)
+    : new Date().getFullYear()
+  const requestedStart = params.get('start_year')
+  const minStart = Math.max(1900, year - 19)
+  const startYear = validYear(requestedStart, minStart, year)
+    ? Number(requestedStart)
+    : Math.max(1900, year - 4)
+  const query = new URLSearchParams({ insight, year })
+  const selectedDimensions = dimensions.filter(([key]) => params.get(key))
+  for (const [key] of selectedDimensions) query.set(key, params.get(key))
+  const scope = selectedDimensions.map(([key, label, collection, field]) => {
+    const value = params.get(key)
+    if (key === 'currency_code') return value
+    const option = reference.data?.[collection]?.find(
+      (item) => String(item[field]) === value,
+    )
+    return option?.name ?? (field === 'code' ? value : label)
+  })
+  if (timeline) query.set('start_year', startYear)
+  else {
+    query.set('group_by', grouping)
+    query.set('metric', metric)
+  }
+  const path = `/analytics/salary-insights?${query}`
+  const { data, error, loading, retry } = useWorkspaceReport(path)
+  const series = seriesFor(type, metric)
+  const columns = insightColumns(type, series)
+  const canDrill = type === 'treemap' && grouping !== 'job_title'
+  const drillLabel = grouping === 'country' ? 'View departments' : 'View roles'
+  const drillDepth = type === 'treemap' ? (params.get('drill') ?? '') : ''
+  const drillLevels = drillDepth.split('.')
+  const inCountry =
+    drillLevels.includes('country') && params.get('country_code')
+  const inDepartment =
+    drillLevels.includes('department') && params.get('department_id')
+
   function change(key, value) {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
+    if (['group_by', 'country_code', 'department_id'].includes(key))
+      next.delete('drill')
+    if (next.toString() !== params.toString()) setParams(next)
+  }
+
+  function viewParams(view) {
+    if (view === insight) return params
+    const next = new URLSearchParams(params)
+    const [, , nextType] = VIEWS[view]
+    next.set('insight', view)
+    next.delete('drill')
+    if (!metricChoices(nextType).includes(requestedMetric))
+      next.delete('metric')
+    return next
+  }
+
+  function drill(row) {
+    const next = new URLSearchParams(params)
+    if (grouping === 'country') {
+      next.set('country_code', row.group_id)
+      next.set('group_by', 'department')
+      next.set('drill', 'country')
+    } else {
+      next.set('department_id', row.group_id)
+      next.set('group_by', 'job_title')
+      next.set('drill', inCountry ? 'country.department' : 'department')
+    }
+    setParams(next)
+    reportTitle.current.focus()
+  }
+
+  function ancestorSearch(level) {
+    const next = new URLSearchParams(params)
+    if (inDepartment) next.delete('department_id')
+    if (level === 'country' && inCountry) next.delete('country_code')
+    next.set('group_by', level)
+    if (level === 'department' && inCountry && inDepartment)
+      next.set('drill', 'country')
+    else next.delete('drill')
+    return `?${next}`
+  }
+
+  function clearFilters() {
+    const next = new URLSearchParams(params)
+    for (const [key] of dimensions) next.delete(key)
+    if (drillDepth) next.delete('group_by')
+    next.delete('drill')
     setParams(next)
   }
+
+  const countryLabel =
+    reference.data?.countries.find((item) => item.code === inCountry)?.name ??
+    inCountry
+  const departmentLabel =
+    reference.data?.departments.find((item) => String(item.id) === inDepartment)
+      ?.name ?? inDepartment
+  const status = loading
+    ? 'Loading report…'
+    : error
+      ? 'Report could not be loaded.'
+      : data
+        ? `${count.format(data.employees)} ${data.employees === 1 ? 'employee' : 'employees'} matched${data.without_currency ? ` · ${count.format(data.without_currency)} without a recorded currency` : ''}`
+        : ''
+
   return (
-    <main id="main" className="page workspace-preview-page">
-      <div className="workspace-heading">
+    <main id="main" className="page workspace-preview-page salary-insights">
+      <div className="workspace-heading insight-heading">
         <div>
           <h1>Salary insights</h1>
-          <p>
-            Compare annual compensation with a separate scale for each currency.
-          </p>
+          <p>Explore pay, payroll, and equity across your workforce.</p>
         </div>
-      </div>
-      <section className="panel report-landscape" aria-label="Report filters">
-        <div className="report-filters">
-          <SelectField
-            id="report-metric"
-            label="Measure"
-            options={metrics}
-            value={params.get('metric') || 'guaranteed'}
-            onChange={(value) => change('metric', value)}
-          />
-          <SelectField
-            id="report-group"
-            label="Group by"
-            options={groupings}
-            value={params.get('group_by') || 'country'}
-            onChange={(value) => change('group_by', value)}
-          />
-          <label className="comp-field">
-            Reporting year
-            <input
-              type="number"
-              min="1900"
-              max="9998"
-              defaultValue={params.get('year') || currentYear}
-              key={params.get('year')}
-              onBlur={(event) => {
-                if (
-                  event.target.validity.valid &&
-                  /^\d{4}$/.test(event.target.value)
-                )
-                  change('year', event.target.value)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur()
-              }}
-            />
-          </label>
-          {filters.map(([key, label, items, field, placeholder]) => (
-            <SelectField
-              key={key}
-              id={`report-${key}`}
-              label={label}
-              placeholder={placeholder}
-              disabled={!reference.data}
-              options={(items || []).map((item) => ({
-                value: String(item[field]),
-                label: key === 'currency_code' ? item.code : item.name,
-              }))}
-              value={params.get(key) || ''}
-              onChange={(value) => change(key, value)}
-            />
-          ))}
-        </div>
-        <ErrorSummary error={reference.error} />
-        {reference.error && (
-          <button className="button secondary" onClick={reference.retry}>
-            Retry filter options
-          </button>
-        )}
-      </section>
-      <p className="comp-status" role="status">
-        {loading
-          ? data
-            ? 'Updating compensation report…'
-            : 'Loading compensation report…'
-          : error
-            ? 'Report could not be updated.'
-            : data
-              ? `${number.format(data.employees)} employees matched · ${number.format(data.without_package)} without a saved package for this report`
-              : ''}
-      </p>
-      <ErrorSummary error={error} />
-      {error && (
-        <button className="button secondary" onClick={retry}>
-          Retry report
+        <button
+          type="button"
+          className="button secondary insight-refresh"
+          aria-label="Refresh report"
+          disabled={loading}
+          onClick={retry}
+        >
+          <RotateCw size={16} aria-hidden="true" />
+          <span>Refresh report</span>
         </button>
-      )}
-      <div
-        className="report-results"
-        role="region"
-        aria-label="Compensation report results"
-        aria-busy={loading}
-      >
-        {loading ? (
-          <ReportSkeleton previous={data?.currencies} />
-        ) : (
-          !error &&
-          data && (
-            <>
-              {data.currencies.length === 0 && (
-                <section className="panel report-landscape">
-                  <h2>No compensation matches</h2>
-                  <p className="comp-muted">
-                    Try a different country, currency, or reporting year.
-                  </p>
-                </section>
-              )}
-              {data.currencies.map(({ currency_code, rows }) => (
-                <section
-                  key={`${data.metric}:${data.year}:${currency_code}`}
-                  className="panel report-landscape"
-                  aria-label={`${currency_code} compensation report`}
-                >
-                  <div className="comp-section-heading">
-                    <div>
-                      <h2>
-                        {currency_code} ·{' '}
-                        {
-                          metrics.find((item) => item.value === data.metric)
-                            ?.label
-                        }
-                      </h2>
-                      <p>
-                        {data.year} · Current packages effective by year end
-                      </p>
-                    </div>
-                  </div>
-                  <Ranges rows={rows} currency={currency_code} />
-                  <ReportTable rows={rows} currency={currency_code} />
-                </section>
-              ))}
-              {!!data.composition.length && (
-                <section className="panel report-landscape">
-                  <div className="comp-section-heading">
-                    <div>
-                      <h2>Cost composition by country</h2>
-                      <p>
-                        {withEquity
-                          ? 'Share of guaranteed CTC for employees with complete costs for the selected year.'
-                          : 'Share of guaranteed cash and benefit costs for employees with a saved package for this report.'}
-                      </p>
-                    </div>
-                  </div>
-                  <Composition
-                    rows={data.composition}
-                    withEquity={withEquity}
-                  />
-                </section>
-              )}
-            </>
-          )
-        )}
       </div>
+
+      <section className="panel insight-controls" aria-label="Report controls">
+        <ViewPicker
+          insight={insight}
+          viewSearch={(view) => `?${viewParams(view)}`}
+          onChange={(view) => {
+            if (view !== insight) setParams(viewParams(view))
+          }}
+        />
+        <div className="insight-primary-fields report-filters">
+          {!timeline && type !== 'paired' && (
+            <SelectField
+              id="insight-metric"
+              label="Measure"
+              value={metric}
+              options={optionsFor(metrics, METRICS)}
+              onChange={(value) => change('metric', value)}
+            />
+          )}
+          {!timeline && !fixedGroup && (
+            <SelectField
+              id="insight-group"
+              label="Group by"
+              value={grouping}
+              options={groupOptions}
+              onChange={(value) => change('group_by', value)}
+            />
+          )}
+          {timeline && (
+            <YearField
+              id="insight-start"
+              key={`start:${startYear}:${year}`}
+              label="Start year"
+              value={startYear}
+              min={minStart}
+              max={year}
+              onChange={(value) => change('start_year', value)}
+            />
+          )}
+          <YearField
+            id="insight-year"
+            key={year}
+            label={timeline ? 'End year' : 'Reporting year'}
+            value={year}
+            onChange={(value) => change('year', value)}
+          />
+        </div>
+        <details className="insight-filters">
+          <summary>
+            <SlidersHorizontal size={16} aria-hidden="true" /> Workforce filters
+            {scope.length > 0 && <span>{scope.join(' · ')}</span>}
+            <ChevronRight size={16} aria-hidden="true" />
+          </summary>
+          <div className="report-filters">
+            {dimensions.map(([key, label, collection, field, placeholder]) => (
+              <SelectField
+                key={key}
+                id={`insight-${key}`}
+                label={label}
+                placeholder={placeholder}
+                disabled={!reference.data}
+                value={params.get(key) ?? ''}
+                options={(reference.data?.[collection] ?? []).map((item) => ({
+                  value: String(item[field]),
+                  label: key === 'currency_code' ? item.code : item.name,
+                }))}
+                onChange={(value) => change(key, value)}
+              />
+            ))}
+          </div>
+          <ErrorSummary error={reference.error} />
+          {reference.error && (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={reference.retry}
+            >
+              Retry filter options
+            </button>
+          )}
+          {selectedDimensions.length > 0 && (
+            <button
+              type="button"
+              className="insight-text-button"
+              onClick={clearFilters}
+            >
+              Clear workforce filters
+            </button>
+          )}
+        </details>
+      </section>
+
+      <section
+        aria-labelledby="insight-report-title"
+        className="insight-report"
+      >
+        <div className="insight-report-heading">
+          <div>
+            <h2 id="insight-report-title" ref={reportTitle} tabIndex={-1}>
+              {title}
+            </h2>
+            <p role="status">{status}</p>
+          </div>
+          {(inCountry || inDepartment) && (
+            <nav className="insight-breadcrumb" aria-label="Payroll drill-down">
+              <ol>
+                <li>
+                  <Link
+                    className="insight-text-button"
+                    to={{
+                      search: ancestorSearch(
+                        inCountry ? 'country' : 'department',
+                      ),
+                    }}
+                    onClick={() => reportTitle.current.focus()}
+                  >
+                    {inCountry ? 'Countries' : 'Departments'}
+                  </Link>
+                </li>
+                {inCountry && (
+                  <li>
+                    <ChevronRight size={14} aria-hidden="true" />
+                    {inDepartment ? (
+                      <Link
+                        className="insight-text-button"
+                        to={{ search: ancestorSearch('department') }}
+                        onClick={() => reportTitle.current.focus()}
+                      >
+                        {countryLabel}
+                      </Link>
+                    ) : (
+                      <span aria-current="page">{countryLabel}</span>
+                    )}
+                  </li>
+                )}
+                {inDepartment && (
+                  <li>
+                    <ChevronRight size={14} aria-hidden="true" />
+                    <span aria-current="page">{departmentLabel}</span>
+                  </li>
+                )}
+              </ol>
+            </nav>
+          )}
+        </div>
+        <div className="report-results" aria-busy={loading}>
+          {loading ? (
+            <ReportSkeleton type={type} columns={columns} grouping={grouping} />
+          ) : error ? (
+            <div className="panel insight-panel">
+              <ErrorSummary error={error} />
+              <button
+                type="button"
+                className="button secondary"
+                onClick={retry}
+              >
+                Retry report
+              </button>
+            </div>
+          ) : data?.currencies.length === 0 ? (
+            <div className="panel insight-panel insight-empty">
+              <h3>
+                {timeline
+                  ? 'No recorded equity awards match'
+                  : 'No compensation matches'}
+              </h3>
+              <p>Try another reporting year or adjust the workforce filters.</p>
+              {selectedDimensions.length > 0 && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={clearFilters}
+                >
+                  Clear workforce filters
+                </button>
+              )}
+              {timeline && <Link to="/employees">Review employee equity</Link>}
+            </div>
+          ) : (
+            data?.currencies.map((currency) => (
+              <CurrencyReport
+                key={`${path}:${currency.currency_code}`}
+                currency={currency}
+                report={data}
+                type={type}
+                columns={columns}
+                series={series}
+                onDrill={canDrill ? drill : null}
+                drillLabel={drillLabel}
+              />
+            ))
+          )}
+        </div>
+      </section>
     </main>
   )
 }

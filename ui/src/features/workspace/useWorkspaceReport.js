@@ -1,29 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCompensationApi } from '../compensation/shared'
 
 export function useWorkspaceReport(path) {
   const api = useCompensationApi()
   const [attempt, setAttempt] = useState(0)
   const [response, setResponse] = useState(null)
-  const key = `${path}:${attempt}`
+  const request = useMemo(() => ({ path, attempt }), [path, attempt])
 
   useEffect(() => {
     const controller = new AbortController()
-    api(path, { signal: controller.signal })
+    api(request.path, { signal: controller.signal })
       .then((data) => {
-        if (!controller.signal.aborted) setResponse({ key, data })
+        if (!controller.signal.aborted) setResponse({ request, data })
       })
       .catch((error) => {
-        if (!controller.signal.aborted)
-          setResponse((previous) => ({ key, data: previous?.data, error }))
+        if (!controller.signal.aborted) setResponse({ request, error })
       })
     return () => controller.abort()
-  }, [api, key, path])
+  }, [api, request])
 
   return {
-    data: response?.data,
-    error: response?.key === key ? response.error : null,
-    loading: response?.key !== key,
+    data: response?.request === request ? response.data : null,
+    error: response?.request === request ? response.error : null,
+    loading: response?.request !== request,
     retry: () => setAttempt((value) => value + 1),
   }
 }
