@@ -191,6 +191,64 @@ def demo_package(
     return result
 
 
+async def seed_target_rules(connection, countries, user_id):
+    version_ids = {}
+    for country in countries:
+        draft = demo_rule(country, with_target=True)
+        rule_id = uuid5(NAMESPACE, f"target-rule:{country}")
+        version_id = demo_version_id(country, with_target=True)
+        existing = (
+            (
+                await connection.execute(
+                    select(rules).where(rules.c.id == rule_id).with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if existing:
+            from payscope.compensation.service import get_version
+
+            saved = await get_version(connection, version_id)
+            if not existing["active"] or saved.components != draft.components:
+                raise ValueError(
+                    "A demo rule was changed or deactivated. Review it before enriching more employees."
+                )
+        else:
+            await connection.execute(
+                rules.insert().values(
+                    id=rule_id,
+                    name=draft.name,
+                    country_code=country,
+                    currency_code=draft.currency_code,
+                    latest_version=1,
+                    created_by=user_id,
+                )
+            )
+            await connection.execute(
+                versions.insert().values(
+                    id=version_id,
+                    rule_id=rule_id,
+                    number=1,
+                    name=draft.name,
+                    created_by=user_id,
+                )
+            )
+            await connection.execute(
+                definitions.insert(),
+                [
+                    dict(
+                        version_id=version_id,
+                        position=index,
+                        **component.model_dump(),
+                    )
+                    for index, component in enumerate(draft.components)
+                ],
+            )
+        version_ids[country] = version_id
+    return version_ids
+
+
 async def seed_compensation(engine, *, apply=False):
     effective_date = date(date.today().year - 4, 1, 1)
     async with engine.begin() as connection:
@@ -245,60 +303,7 @@ async def seed_compensation(engine, *, apply=False):
         )
         if user_id is None:
             raise ValueError("Run the base seed before reframing compensation.")
-        version_ids = {}
-        for country in summary:
-            draft = demo_rule(country, with_target=True)
-            rule_id = uuid5(NAMESPACE, f"target-rule:{country}")
-            version_id = demo_version_id(country, with_target=True)
-            existing = (
-                (
-                    await connection.execute(
-                        select(rules).where(rules.c.id == rule_id).with_for_update()
-                    )
-                )
-                .mappings()
-                .one_or_none()
-            )
-            if existing:
-                from payscope.compensation.service import get_version
-
-                saved = await get_version(connection, version_id)
-                if not existing["active"] or saved.components != draft.components:
-                    raise ValueError(
-                        "A demo rule was changed or deactivated. Review it before enriching more employees."
-                    )
-            else:
-                await connection.execute(
-                    rules.insert().values(
-                        id=rule_id,
-                        name=draft.name,
-                        country_code=country,
-                        currency_code=draft.currency_code,
-                        latest_version=1,
-                        created_by=user_id,
-                    )
-                )
-                await connection.execute(
-                    versions.insert().values(
-                        id=version_id,
-                        rule_id=rule_id,
-                        number=1,
-                        name=draft.name,
-                        created_by=user_id,
-                    )
-                )
-                await connection.execute(
-                    definitions.insert(),
-                    [
-                        dict(
-                            version_id=version_id,
-                            position=index,
-                            **component.model_dump(),
-                        )
-                        for index, component in enumerate(draft.components)
-                    ],
-                )
-            version_ids[country] = version_id
+        version_ids = await seed_target_rules(connection, summary, user_id)
         for start in range(0, len(records), 250):
             package_rows, component_rows = [], []
             for record in records[start : start + 250]:

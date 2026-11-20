@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { InsightCard, InsightHelp } from './InsightHelp'
-import { ScatterPlot, TimelinePlot } from './InsightPointPlots'
+import { TimelinePlot } from './InsightPointPlots'
 import { AWARDS, dash, difference, formatValue, helpFor } from './insightViews'
 import { useInsightDetails } from './useInsightDetails'
 
@@ -97,7 +97,7 @@ function HorizontalPlot({
   markProps,
   onPin,
 }) {
-  const range = type === 'range'
+  const range = type === 'range' || type === 'country'
   const share = type === 'shares'
   const low = range
     ? Math.min(...rows.map((row) => Number(row.percentiles.p10)))
@@ -115,7 +115,7 @@ function HorizontalPlot({
   const max = high || 1
   const fraction = (value) => (Number(value) - min) / (max - min)
   return (
-    <div className="insight-horizontal">
+    <div className="insight-horizontal" data-plot={type}>
       <Axis min={min} max={max} currency={currency} share={share} />
       {rows.map((row) => {
         const value = range
@@ -333,8 +333,6 @@ export default function InsightChart({
         <Treemap {...plotProps} />
       ) : type === 'timeline' ? (
         <TimelinePlot {...plotProps} />
-      ) : type === 'scatter' ? (
-        <ScatterPlot {...plotProps} />
       ) : (
         <HorizontalPlot type={type} {...plotProps} />
       )}

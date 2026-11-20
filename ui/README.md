@@ -10,6 +10,8 @@ The signed-in workspace has a collapsible sidebar and mobile navigation drawer. 
 2. Switch to **Payroll concentration**. Click or tap a country tile to pin its values, then choose **View departments**. Select a department and choose **View roles**. Use Escape to close a pinned card, and use the breadcrumb or a shared URL to revisit the drill-down.
 3. In the seeded demo, open **Equity timeline** and select a currency and reporting years. Focus or tap a year to read RSU and stock-option allocations. Compare a recorded zero, a partial total, or an unavailable amount with **Exact values**. In **Guaranteed vs. target CTC**, read the coverage breakdown for any excluded employees. [Prepare the fictional demo](../backend/README.md#populate-the-fictional-demo)
 
+In **Country comparison**, read the median and pay band on each country's row. Currency panels have separate scales. A panel with one eligible country still shows its pay distribution.
+
 Compensation rules and employee compensation are live. HR can define custom fixed or percentage components, preview calculations, publish immutable versions, apply rules to matching employees, enter manual breakdowns, and override components with reasons. Employee saves require a reviewed preview and preserve directory position. Guaranteed costs and costs including target components are distinct; employee deductions and unconfigured equity are explained separately. Seeded employees use illustrative country packages preserving their original totals.
 
 Run the backend on port 8000, then run these commands from `ui/`.

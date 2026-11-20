@@ -131,3 +131,5 @@ uv run --locked python -m payscope.seed --equity apply
 ```
 
 Preview reports the proposed no-equity, award, allocation, and intentionally unconfigured counts. Apply inserts the same cohorts into untouched demo packages with recognized demo rules and skips existing elections, awards, and edited packages. Rerunning apply inserts only newly eligible records. Existing demo packages keep their effective dates and target components. A package first effective in 2026 contributes to the timeline starting in 2026.
+
+For a demo originally seeded with 2026-only packages, use `uv run --locked python -m payscope.seed --demo-history preview` and then `uv run --locked python -m payscope.seed --demo-history apply`. This explicit upgrade makes recognized, untouched legacy demo packages effective from 2022 and adds the fictional target bonus. It backfills earlier years for recognized seeded awards and preserves their recorded 2026 and later allocations. Edited packages and employees with manually created or edited awards are excluded. Guaranteed package costs stay the same.

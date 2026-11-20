@@ -174,14 +174,25 @@ async def main() -> None:
         choices=["preview", "apply"],
         help="Preview or populate fictional equity for saved demo packages.",
     )
+    operation.add_argument(
+        "--demo-history",
+        choices=["preview", "apply"],
+        help="Add historical allocations and targets to untouched legacy demo data.",
+    )
     arguments = parser.parse_args()
-    if arguments.equity:
+    if arguments.equity or arguments.demo_history:
+        from payscope.compensation.demo_history import upgrade_demo_history
         from payscope.compensation.equity_seed import seed_equity
 
         engine = create_database_engine(Settings())
         try:
-            result = await seed_equity(engine, apply=arguments.equity == "apply")
-            logger.info("seed.equity mode=%s counts=%s", arguments.equity, result)
+            seed, mode = (
+                (upgrade_demo_history, arguments.demo_history)
+                if arguments.demo_history
+                else (seed_equity, arguments.equity)
+            )
+            result = await seed(engine, apply=mode == "apply")
+            logger.info("seed.%s mode=%s counts=%s", seed.__name__, mode, result)
         finally:
             await engine.dispose()
         return

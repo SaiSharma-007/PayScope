@@ -1,28 +1,51 @@
 import { useEffect, useId, useRef, useState } from 'react'
 
-export function useInsightDetails() {
+let openCard
+
+export function useInsightDetails({ definition = false } = {}) {
   const [entry, setEntry] = useState(null)
   const id = useId()
   const timer = useRef()
   const cancelClose = () => clearTimeout(timer.current)
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+      if (openCard?.id === id) openCard = undefined
+    },
+    [id],
+  )
+
+  function close() {
+    cancelClose()
+    if (openCard?.id === id) openCard = undefined
+    setEntry(null)
+  }
+
+  function claim(pinned) {
+    const switchingDefinition =
+      definition && openCard?.definition && openCard.id !== id
+    if (!pinned && openCard?.pinned && !switchingDefinition) return false
+    if (openCard?.id !== id) openCard?.close()
+    openCard = { id, definition, pinned, close }
+    return true
+  }
 
   function preview(key, event) {
+    if (!claim(false)) return
     const anchor = event.currentTarget
     const x =
       event.type === 'pointerenter'
         ? event.clientX - anchor.getBoundingClientRect().left
         : null
     cancelClose()
-    setEntry((previous) => (previous?.pinned ? previous : { key, anchor, x }))
+    setEntry({ key, anchor, x })
   }
 
   function leave() {
     cancelClose()
-    timer.current = setTimeout(
-      () => setEntry((previous) => (previous?.pinned ? previous : null)),
-      100,
-    )
+    timer.current = setTimeout(() => {
+      if (openCard?.id === id && !openCard.pinned) close()
+    }, 100)
   }
 
   function pin(key, event) {
@@ -30,18 +53,18 @@ export function useInsightDetails() {
     const x = event.detail
       ? event.clientX - anchor.getBoundingClientRect().left
       : null
+    if (entry?.pinned && entry.key === key) {
+      close()
+      return
+    }
+    claim(true)
     cancelClose()
-    setEntry((previous) =>
-      previous?.pinned && previous.key === key
-        ? null
-        : { key, anchor, x, pinned: true },
-    )
+    setEntry({ key, anchor, x, pinned: true })
   }
 
   function dismiss(restore = false) {
-    cancelClose()
     if (restore && entry?.pinned) entry.anchor.focus({ preventScroll: true })
-    setEntry(null)
+    close()
   }
 
   function trigger(key) {

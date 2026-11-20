@@ -13,7 +13,7 @@ import { money } from '../compensation/shared'
 export const VIEWS = {
   pay_distribution: ['Pay distribution', ChartNoAxesGantt, 'range'],
   compensation_mix: ['Compensation mix', Layers3, 'mix'],
-  country_comparison: ['Country comparison', Globe2, 'scatter', 'country'],
+  country_comparison: ['Country comparison', Globe2, 'country', 'country'],
   guaranteed_vs_target_ctc: ['Guaranteed vs. target CTC', Scale, 'paired'],
   payroll_concentration: ['Payroll concentration', LayoutGrid, 'treemap'],
   role_bands: ['Role bands', Boxes, 'range', 'job_title'],
@@ -27,7 +27,7 @@ export const VIEW_HELP = {
   compensation_mix:
     'What makes up the selected cost? Each segment shows the amount spent on earnings, employer costs, or equity where applicable.',
   country_comparison:
-    'Which countries have a higher median or a wider pay spread? Each dot is a country within the displayed currency.',
+    'How does typical pay vary by country? Compare the median diamonds and the middle half of pay within each currency.',
   guaranteed_vs_target_ctc:
     'How much would company cost rise if target pay were earned? Both endpoints include recorded annual equity and use the same employees.',
   payroll_concentration:
@@ -74,9 +74,9 @@ const definitions = {
     'Total cost for eligible employees in this group, using the selected measure.',
   'Share gap': 'Payroll share minus headcount share, in percentage points.',
   'Guaranteed CTC':
-    'Guaranteed earnings and employer costs plus recorded annual equity. CTC means cost to company.',
+    'Guaranteed cost to company. Add base pay, guaranteed allowances, employer-paid benefits, and recorded annual equity.',
   'Target CTC':
-    'Guaranteed CTC plus included compensation payable at target, using the same eligible employees.',
+    'Company cost if employees earn their target incentives. Add target bonuses or commissions to guaranteed CTC for the same employees.',
   'At target':
     'Target CTC minus guaranteed CTC for the same employees and currency.',
   'P25–P75': 'The middle half of the group’s eligible pay values.',
@@ -140,7 +140,7 @@ export const count = new Intl.NumberFormat('en')
 export const dash = '—'
 
 export function metricChoices(type) {
-  if (type === 'range' || type === 'scatter')
+  if (type === 'range' || type === 'country')
     return ['basic', 'ctc', 'target_ctc']
   if (type === 'paired') return ['ctc']
   if (type === 'timeline') return []
@@ -163,7 +163,7 @@ export function seriesFor(type, metric) {
       ['payroll_share', 'Payroll share'],
     ]
   if (type === 'timeline') return Object.entries(AWARDS)
-  if (type === 'scatter' || type === 'treemap') return []
+  if (type === 'treemap') return []
   return [
     ['box', 'P25–P75'],
     ['whisker', 'P10–P90'],
@@ -226,7 +226,7 @@ export function reportReading(type, rows, currency) {
     return `${name} totals ${pay(row.amount)} across the included components.`
   if (type === 'treemap')
     return `${name} accounts for ${row.payroll_share}% of eligible payroll in this ${currency} selection.`
-  return type === 'scatter'
+  return type === 'country'
     ? `${name} has a median of ${pay(row.percentiles.p50)} and a pay spread of ${pay(row.spread)} across ${count.format(row.eligible)} eligible employees.`
     : `The middle half of eligible pay in ${name} runs from ${pay(row.percentiles.p25)} to ${pay(row.percentiles.p75)}.`
 }
@@ -238,7 +238,7 @@ const coverage = [
 
 export function insightColumns(type, series) {
   const pay = (label, key) => [label, (row) => row[key], 'money']
-  if (type === 'range' || type === 'scatter')
+  if (type === 'range' || type === 'country')
     return [
       ...PERCENTILES.map((key) => [
         key.toUpperCase(),

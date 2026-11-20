@@ -1,4 +1,4 @@
-import { equityStatus, formatValue } from './insightViews'
+import { equityStatus } from './insightViews'
 
 const compact = new Intl.NumberFormat('en', {
   notation: 'compact',
@@ -7,61 +7,14 @@ const compact = new Intl.NumberFormat('en', {
 const position = (value, max) => 4 + (92 * Number(value)) / max
 const ticks = [1, 0.5, 0]
 
-function VerticalAxis({ max, label }) {
+function VerticalAxis({ max }) {
   return (
     <div className="insight-vertical-axis" aria-hidden="true">
-      {label && <span className="insight-vertical-label">{label}</span>}
       {ticks.map((tick) => (
         <span key={tick} style={{ top: `${100 - position(tick, 1)}%` }}>
           {compact.format(max * tick)}
         </span>
       ))}
-    </div>
-  )
-}
-
-export function ScatterPlot({ rows, currency, isActive, markProps, onPin }) {
-  const medianMax =
-    Math.max(...rows.map((row) => Number(row.percentiles.p50))) || 1
-  const spreadMax = Math.max(...rows.map((row) => Number(row.spread))) || 1
-  return (
-    <div className="insight-scatter">
-      <VerticalAxis max={spreadMax} label={`Pay spread (${currency})`} />
-      <div className="insight-scatter-area">
-        {rows.map((row) => (
-          <button
-            type="button"
-            className="insight-country-point"
-            key={row.group_id}
-            style={{
-              '--x': `${position(row.percentiles.p50, medianMax)}%`,
-              '--y': `${100 - position(row.spread, spreadMax)}%`,
-            }}
-            aria-label={`${row.group_name}, median ${formatValue(row.percentiles.p50, 'money', currency)}`}
-            data-active={isActive(row.group_id)}
-            {...markProps(row.group_id)}
-            onClick={(event) => onPin(row.group_id, event)}
-          >
-            <span aria-hidden="true" />
-            <small
-              aria-hidden="true"
-              data-align={
-                Number(row.percentiles.p50) > medianMax / 2 ? 'left' : 'right'
-              }
-            >
-              {row.group_id}
-            </small>
-          </button>
-        ))}
-      </div>
-      <div className="insight-scatter-axis" aria-hidden="true">
-        <div>
-          {[...ticks].reverse().map((tick) => (
-            <span key={tick}>{compact.format(medianMax * tick)}</span>
-          ))}
-        </div>
-        <strong>Median pay ({currency})</strong>
-      </div>
     </div>
   )
 }

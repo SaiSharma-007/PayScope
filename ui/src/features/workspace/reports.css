@@ -516,7 +516,7 @@
 
 .insight-dot-link, .insight-endpoint { position: absolute; top: 50%; transform: translateY(-50%); }
 .insight-dot-link { block-size: 2px; background: var(--border); }
-.insight-endpoint, .insight-country-point > span, .insight-equity-point, .insight-equity-key i {
+.insight-endpoint, .insight-equity-point, .insight-equity-key i {
   inline-size: 11px;
   block-size: 11px;
   border: 1px solid var(--surface);
@@ -533,59 +533,8 @@
 }
 .insight-missing-point { position: absolute; right: 8px; top: 6px; color: var(--muted); font-size: 11px; background: var(--surface); }
 
-.insight-scatter {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: clamp(190px, 27vw, 310px) auto;
-  gap: 8px;
-}
-.insight-scatter-area {
-  position: relative;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  background-image: linear-gradient(to right, var(--divider) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--divider) 1px, transparent 1px);
-  background-size: 23% 46%;
-  background-position: 4% 4%;
-}
-.insight-vertical-axis { position: relative; min-inline-size: 2rem; color: var(--muted); font: 400 11px var(--font-mono); }
+.insight-vertical-axis { position: relative; min-inline-size: 7ch; color: var(--muted); font: 400 11px var(--font-mono); }
 .insight-vertical-axis > span { position: absolute; inset-inline-end: 0; transform: translateY(-50%); }
-.insight-vertical-axis > .insight-vertical-label {
-  top: 50%;
-  inset-inline-end: calc(100% + 1px);
-  writing-mode: vertical-rl;
-  transform: translateY(-50%) rotate(180deg);
-  white-space: nowrap;
-}
-.insight-scatter .insight-vertical-axis { margin-inline-start: 16px; }
-.insight-country-point {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  inline-size: 38px;
-  block-size: 38px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-}
-.insight-country-point small {
-  position: absolute;
-  inset-inline-start: 70%;
-  color: var(--foreground);
-  font: 500 11px var(--font-mono);
-  pointer-events: none;
-}
-.insight-country-point small[data-align='left'] { inset-inline-start: auto; inset-inline-end: 70%; }
-.insight-country-point:is(:focus-visible, [data-active='true']) { z-index: 1; }
-.insight-country-point[data-active='true'] > span { outline: 2px solid var(--primary); outline-offset: 3px; }
-.insight-scatter-axis { grid-column: 2; color: var(--muted); text-align: center; font-size: 12px; }
-.insight-scatter-axis div { display: flex; justify-content: space-between; padding-inline: 4%; font: 400 11px var(--font-mono); }
-
 .insight-timeline-frame .insight-vertical-axis { height: var(--insight-timeline-height); margin-block-start: 5px; }
 .insight-equity-lines {
   position: absolute;
@@ -683,7 +632,7 @@
   .insight-stack > span { background: ButtonText; forced-color-adjust: none; }
   .insight-median { background: Highlight; }
   .insight-equity-lines line { stroke: ButtonText; }
-  .insight-endpoint, .insight-equity-point, .insight-country-point > span {
+  .insight-endpoint, .insight-equity-point {
     forced-color-adjust: none;
     background: ButtonText;
     border-color: Canvas;

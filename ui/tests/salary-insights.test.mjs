@@ -342,9 +342,30 @@ test('shared filters, all eight views, and keyboard and pointer chart values', a
           .getByRole('cell', { name: 'INR 200.00' })
           .first()
           .waitFor()
+        const legend = page.getByRole('list', { name: 'Chart legend' })
+        const guaranteed = legend.getByRole('button', {
+          name: 'About Guaranteed CTC',
+        })
+        const target = legend.getByRole('button', { name: 'About Target CTC' })
+        await guaranteed.click()
+        await page
+          .getByRole('region', { name: 'About Guaranteed CTC' })
+          .getByText(/base pay, guaranteed allowances/)
+          .waitFor()
+        await target.hover()
+        await page
+          .getByRole('tooltip', { name: 'About Target CTC' })
+          .getByText(/target bonuses or commissions/)
+          .waitFor()
+        assert.equal(
+          await page.locator('.insight-float:popover-open').count(),
+          1,
+        )
       }
       if (viewId === 'country_comparison') {
-        await page.locator('.insight-country-point').waitFor()
+        const plot = page.locator('[data-plot="country"]')
+        await plot.getByRole('button', { name: /India.*INR 100.00/ }).waitFor()
+        assert.equal(await plot.locator('.insight-box').count(), 1)
       }
     }
   })

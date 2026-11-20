@@ -120,7 +120,7 @@ export function InsightCard({ details, label, children, as: Element = 'div' }) {
 }
 
 export function InsightHelp({ label, children }) {
-  const details = useInsightDetails()
+  const details = useInsightDetails({ definition: true })
   if (!children) return null
   return (
     <>

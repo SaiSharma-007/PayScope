@@ -365,6 +365,13 @@ function CurrencyReport({
         </p>
       )}
       {reading && <p className="insight-reading">{reading}</p>}
+      {type === 'country' &&
+        eligible > 0 &&
+        currency.rows.filter((row) => row.eligible > 0).length === 1 && (
+          <p className="insight-coverage-note">
+            One country has eligible pay in {code} for these filters.
+          </p>
+        )}
       {type === 'shares' && eligible === 0 && (
         <p className="insight-incomplete">
           Payroll is unavailable for these groups.{' '}
