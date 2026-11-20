@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import {
   createBrowserRouter,
   RouterProvider,
@@ -18,9 +18,10 @@ import Feedback from './components/Feedback'
 import WorkspaceShell from './components/WorkspaceShell'
 import WorkspacePreview from './features/workspace/WorkspacePreview'
 import Overview from './features/workspace/Overview'
-import SalaryInsights from './features/workspace/SalaryInsights'
 import Rules from './features/compensation/Rules'
 import RuleEditor from './features/compensation/RuleEditor'
+
+const SalaryInsights = lazy(() => import('./features/workspace/SalaryInsights'))
 
 function ProtectedRoute() {
   const auth = useAuth()
@@ -78,7 +79,16 @@ function Pages() {
           <Route element={<WorkspaceShell />}>
             <Route path="/employees" element={<Employees />} />
             <Route path="/overview" element={<Overview />} />
-            <Route path="/insights" element={<SalaryInsights />} />
+            <Route
+              path="/insights"
+              element={
+                <Suspense
+                  fallback={<Feedback message="Opening Salary insights…" />}
+                >
+                  <SalaryInsights />
+                </Suspense>
+              }
+            />
             <Route path="/activity" element={<WorkspacePreview />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/rules/new" element={<RuleEditor key="new-rule" />} />

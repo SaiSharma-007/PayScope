@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ChevronRight,
@@ -11,20 +11,23 @@ import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from '../compensation/Fields'
 import { useReferenceData } from '../compensation/shared'
 import InsightChart from './InsightChart'
+import { InsightHelp } from './InsightHelp'
 import {
   AWARDS,
   CATEGORIES,
   GROUPS,
   METRICS,
   VIEWS,
+  VIEW_HELP,
   count,
   formatValue,
+  helpFor,
   insightColumns,
   metricChoices,
+  reportReading,
   seriesFor,
 } from './insightViews'
 import { useWorkspaceReport } from './useWorkspaceReport'
-import './reports.css'
 
 const dimensions = [
   ['country_code', 'Country', 'countries', 'code', 'All countries'],
@@ -42,11 +45,43 @@ const groupOptions = optionsFor(Object.keys(GROUPS), GROUPS)
 const validYear = (value, min, max) =>
   /^\d{4}$/.test(value) && Number(value) >= min && Number(value) <= max
 
+function DefinedLabel({ label, children }) {
+  return (
+    <span className="insight-defined">
+      {children ?? label}
+      <InsightHelp label={label}>{helpFor(label)}</InsightHelp>
+    </span>
+  )
+}
+
+const exclusionLabels = {
+  no_effective_package: 'Without a package effective by year-end',
+  equity_unconfigured: 'Without an equity status',
+  missing_allocation: 'Missing a usable award allocation',
+}
+
+function exclusionList(reasons) {
+  return Object.entries(exclusionLabels)
+    .filter(([key]) => reasons?.[key] > 0)
+    .map(([key, label]) => [label, count.format(reasons[key])])
+}
+
+function InsightSelect({ label, ...props }) {
+  return (
+    <div className="insight-select-help">
+      <SelectField label={label} {...props} />
+      <InsightHelp label={label}>{helpFor(label)}</InsightHelp>
+    </div>
+  )
+}
+
 function YearField({ id, label, value, min = 1900, max = 9998, onChange }) {
   const [invalid, setInvalid] = useState(false)
   return (
     <div className="comp-field">
-      <label htmlFor={id}>{label}</label>
+      <DefinedLabel label={label}>
+        <label htmlFor={id}>{label}</label>
+      </DefinedLabel>
       <input
         id={id}
         type="number"
@@ -81,18 +116,20 @@ function ViewPicker({ insight, viewSearch, onChange }) {
     <>
       <nav className="insight-view-grid" aria-label="Salary insight views">
         {Object.entries(VIEWS).map(([key, [label, Icon]]) => (
-          <Link
-            key={key}
-            to={{ search: viewSearch(key) }}
-            aria-current={insight === key ? 'page' : undefined}
-          >
-            <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-            <span>{label}</span>
-          </Link>
+          <div className="insight-view-choice" key={key}>
+            <Link
+              to={{ search: viewSearch(key) }}
+              aria-current={insight === key ? 'page' : undefined}
+            >
+              <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+              <span>{label}</span>
+            </Link>
+            <InsightHelp label={label}>{VIEW_HELP[key]}</InsightHelp>
+          </div>
         ))}
       </nav>
       <div className="insight-view-select">
-        <SelectField
+        <InsightSelect
           id="insight-view"
           label="Insight view"
           value={insight}
@@ -140,6 +177,7 @@ function InsightTable({
   drillLabel,
 }) {
   const timeline = type === 'timeline'
+  const groupLabel = timeline ? 'Year and award type' : GROUPS[grouping]
   return (
     <div className="insight-table-wrap">
       <table className="report-table" role="table">
@@ -149,11 +187,11 @@ function InsightTable({
         <thead role="rowgroup">
           <tr role="row">
             <th scope="col">
-              {timeline ? 'Year and award type' : GROUPS[grouping]}
+              {loading ? groupLabel : <DefinedLabel label={groupLabel} />}
             </th>
             {columns.map(([label]) => (
               <th key={label} scope="col">
-                {label}
+                {loading ? label : <DefinedLabel label={label} />}
               </th>
             ))}
           </tr>
@@ -202,6 +240,20 @@ function InsightTable({
                   {columns.map(([label, read, mode]) => (
                     <td role="cell" data-label={label} key={label}>
                       {formatValue(read(row), mode, currency)}
+                      {label === 'Missing' &&
+                        row.missing > 0 &&
+                        row.missing_reasons && (
+                          <InsightHelp
+                            label={`missing CTC in ${row.group_name}`}
+                          >
+                            {exclusionList(row.missing_reasons)
+                              .map(
+                                ([reason, value]) =>
+                                  `${value} ${reason.toLowerCase()}`,
+                              )
+                              .join(' · ')}
+                          </InsightHelp>
+                        )}
                     </td>
                   ))}
                 </tr>
@@ -229,6 +281,24 @@ function ReportSkeleton({ type, columns, grouping }) {
   )
 }
 
+function CTCCoverage({ reasons }) {
+  const exclusions = exclusionList(reasons)
+  if (!exclusions.length) return null
+  return (
+    <div className="insight-exclusions">
+      <strong>Why some employees are excluded</strong>
+      <ul>
+        {exclusions.map(([label, value]) => (
+          <li key={label}>
+            {label} <b>{value}</b>
+          </li>
+        ))}
+      </ul>
+      <Link to="/employees">Review employee compensation and equity</Link>
+    </div>
+  )
+}
+
 function CurrencyReport({
   currency,
   report,
@@ -247,6 +317,7 @@ function CurrencyReport({
     ? currency.rows.reduce((sum, row) => sum + row.missing, 0)
     : currency.missing
   const ready = timeline || eligible > 0 || type === 'shares'
+  const reading = ready ? reportReading(type, currency.rows, code) : null
   const period =
     timeline && report.start_year !== report.year
       ? `${report.start_year}–${report.year}`
@@ -258,34 +329,42 @@ function CurrencyReport({
           <h3>
             {code} <span>{period}</span>
           </h3>
-          <p>
+          <p className="insight-panel-coverage">
             {timeline
               ? `${count.format(eligible)} recorded · ${count.format(missing)} missing ${missing === 1 ? 'allocation' : 'allocations'}`
               : `${count.format(eligible)} of ${count.format(currency.population)} ${currency.population === 1 ? 'employee' : 'employees'} eligible · ${count.format(missing)} missing`}
+            <InsightHelp label="Coverage">
+              {timeline
+                ? 'Coverage counts applicable award allocations across the displayed years. An award can count in more than one year.'
+                : helpFor('Coverage')}
+            </InsightHelp>
           </p>
         </div>
         {currency.payroll_total != null && (
           <div className="insight-total">
-            <span>Eligible payroll</span>
+            <DefinedLabel label="Eligible payroll" />
             <strong>
               {formatValue(currency.payroll_total, 'money', code)}
             </strong>
           </div>
         )}
       </div>
-      {!ready && (
+      {!ready && !currency.missing_reasons && (
         <p className="insight-incomplete">
           No complete values for this selection.{' '}
           <Link to="/employees">Review employee compensation</Link> or adjust
           the filters.
         </p>
       )}
+      <CTCCoverage reasons={currency.missing_reasons} />
       {timeline && missing > 0 && (
         <p className="insight-incomplete">
-          Totals reflect recorded allocations.{' '}
+          Partial totals include the recorded allocations. A gap means a total
+          is unavailable or no awards applied.{' '}
           <Link to="/employees">Review missing allocations</Link>.
         </p>
       )}
+      {reading && <p className="insight-reading">{reading}</p>}
       {type === 'shares' && eligible === 0 && (
         <p className="insight-incomplete">
           Payroll is unavailable for these groups.{' '}
@@ -317,6 +396,17 @@ function CurrencyReport({
         <h4>Exact values</h4>
         {missing > 0 && <small>— indicates an unavailable value</small>}
       </div>
+      <details className="insight-column-help">
+        <summary>Column definitions</summary>
+        <dl>
+          {columns.map(([label]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{helpFor(label)}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
       <InsightTable
         rows={currency.rows}
         columns={columns}
@@ -333,7 +423,12 @@ function CurrencyReport({
 export default function SalaryInsights() {
   const [params, setParams] = useSearchParams()
   const reference = useReferenceData()
+  const pageTitle = useRef(null)
   const reportTitle = useRef(null)
+  useEffect(() => {
+    if (document.activeElement === document.body)
+      pageTitle.current.focus({ preventScroll: true })
+  }, [])
   const requested = params.get('insight')
   const insight = Object.hasOwn(VIEWS, requested)
     ? requested
@@ -459,7 +554,9 @@ export default function SalaryInsights() {
     <main id="main" className="page workspace-preview-page salary-insights">
       <div className="workspace-heading insight-heading">
         <div>
-          <h1>Salary insights</h1>
+          <h1 ref={pageTitle} tabIndex={-1}>
+            Salary insights
+          </h1>
           <p>Explore pay, payroll, and equity across your workforce.</p>
         </div>
         <button
@@ -484,7 +581,7 @@ export default function SalaryInsights() {
         />
         <div className="insight-primary-fields report-filters">
           {!timeline && type !== 'paired' && (
-            <SelectField
+            <InsightSelect
               id="insight-metric"
               label="Measure"
               value={metric}
@@ -493,7 +590,7 @@ export default function SalaryInsights() {
             />
           )}
           {!timeline && !fixedGroup && (
-            <SelectField
+            <InsightSelect
               id="insight-group"
               label="Group by"
               value={grouping}
@@ -528,7 +625,7 @@ export default function SalaryInsights() {
           </summary>
           <div className="report-filters">
             {dimensions.map(([key, label, collection, field, placeholder]) => (
-              <SelectField
+              <InsightSelect
                 key={key}
                 id={`insight-${key}`}
                 label={label}
@@ -574,6 +671,7 @@ export default function SalaryInsights() {
             <h2 id="insight-report-title" ref={reportTitle} tabIndex={-1}>
               {title}
             </h2>
+            <p className="insight-view-description">{VIEW_HELP[insight]}</p>
             <p role="status">{status}</p>
           </div>
           {(inCountry || inDepartment) && (
@@ -639,7 +737,11 @@ export default function SalaryInsights() {
                   ? 'No recorded equity awards match'
                   : 'No compensation matches'}
               </h3>
-              <p>Try another reporting year or adjust the workforce filters.</p>
+              <p>
+                {timeline
+                  ? 'This selection has no applicable awards in the chosen years. Review employee awards or change the years and filters.'
+                  : 'Try another reporting year or adjust the workforce filters.'}
+              </p>
               {selectedDimensions.length > 0 && (
                 <button
                   type="button"

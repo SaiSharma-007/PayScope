@@ -1,6 +1,8 @@
-import { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { AWARDS, dash, formatValue } from './insightViews'
+import { InsightCard, InsightHelp } from './InsightHelp'
+import { ScatterPlot, TimelinePlot } from './InsightPointPlots'
+import { AWARDS, dash, difference, formatValue, helpFor } from './insightViews'
+import { useInsightDetails } from './useInsightDetails'
 
 const ticks = [0, 0.25, 0.5, 0.75, 1]
 const compact = new Intl.NumberFormat('en', {
@@ -55,6 +57,37 @@ function BoxPlot({ row, fraction }) {
   )
 }
 
+function Dots({ plot, row, series, fraction }) {
+  const [first, second] = series.map(([key]) => row[key])
+  return (
+    <>
+      {first != null && second != null && (
+        <span
+          className="insight-dot-link"
+          style={{
+            left: width(Math.min(fraction(first), fraction(second))),
+            width: width(Math.abs(fraction(first) - fraction(second))),
+          }}
+        />
+      )}
+      {series.map(([key]) =>
+        row[key] == null ? null : (
+          <span
+            className="insight-endpoint"
+            data-series={key}
+            key={key}
+            data-coincident={first != null && first === second}
+            style={{ left: width(fraction(row[key])) }}
+          />
+        ),
+      )}
+      {plot === 'shares' && second == null && (
+        <span className="insight-missing-point">Payroll unavailable</span>
+      )}
+    </>
+  )
+}
+
 function HorizontalPlot({
   rows,
   type,
@@ -88,10 +121,10 @@ function HorizontalPlot({
         const value = range
           ? row.percentiles.p50
           : share
-            ? row.payroll_share
+            ? difference(row.payroll_share, row.headcount_share)
             : type === 'mix'
               ? row.amount
-              : row.target_ctc
+              : difference(row.target_ctc, row.guaranteed_ctc)
         return (
           <button
             type="button"
@@ -99,23 +132,18 @@ function HorizontalPlot({
             key={row.group_id}
             data-active={isActive(row.group_id)}
             {...markProps(row.group_id)}
-            onClick={() => onPin(row.group_id)}
+            onClick={(event) => onPin(row.group_id, event)}
           >
             <span className="insight-mark-label">{row.group_name}</span>
             <span className="insight-track" aria-hidden="true">
               {range ? (
                 <BoxPlot row={row} fraction={fraction} />
-              ) : (
-                <span
-                  className={type === 'mix' ? 'insight-stack' : 'insight-pair'}
-                >
+              ) : type === 'mix' ? (
+                <span className="insight-stack">
                   {series.map(([key]) => {
-                    const amount =
-                      type === 'mix'
-                        ? row.categories.find(
-                            (category) => category.category === key,
-                          )?.amount
-                        : row[key]
+                    const amount = row.categories.find(
+                      (category) => category.category === key,
+                    )?.amount
                     return amount == null ? null : (
                       <span
                         key={key}
@@ -125,10 +153,18 @@ function HorizontalPlot({
                     )
                   })}
                 </span>
+              ) : (
+                <Dots
+                  plot={type}
+                  row={row}
+                  series={series}
+                  fraction={fraction}
+                />
               )}
             </span>
             <strong>
-              {formatValue(value, share ? 'share' : 'money', currency)}
+              {type === 'paired' && value != null && '+'}
+              {formatValue(value, share ? 'points' : 'money', currency)}
             </strong>
           </button>
         )
@@ -184,7 +220,7 @@ function Treemap({ rows, isActive, markProps, onPin }) {
             blockSize: width(h),
           }}
           {...markProps(row.group_id)}
-          onClick={() => onPin(row.group_id)}
+          onClick={(event) => onPin(row.group_id, event)}
         >
           <span>{row.group_name}</span>
           <strong>{formatValue(row.payroll_share, 'share')}</strong>
@@ -194,61 +230,9 @@ function Treemap({ rows, isActive, markProps, onPin }) {
   )
 }
 
-function TimelinePlot({ rows, series, isActive, markProps, onPin }) {
-  const max =
-    Math.max(
-      ...rows.flatMap((row) => row.awards.map((award) => Number(award.amount))),
-    ) || 1
-  return (
-    <div className="insight-timeline-frame">
-      <div className="insight-y-axis" aria-hidden="true">
-        {[1, 0.5, 0].map((value) => (
-          <span key={value}>{compact.format(max * value)}</span>
-        ))}
-      </div>
-      <div
-        className="insight-timeline-scroll"
-        role="region"
-        aria-label="Equity chart calendar"
-        tabIndex={0}
-      >
-        <div className="insight-timeline" style={{ '--years': rows.length }}>
-          {rows.map((row) => (
-            <button
-              type="button"
-              className="insight-year"
-              key={row.year}
-              data-active={isActive(row.year)}
-              {...markProps(row.year)}
-              onClick={() => onPin(row.year)}
-            >
-              <span className="insight-year-bars" aria-hidden="true">
-                {series.map(([key]) => {
-                  const award = row.awards.find((award) => award.kind === key)
-                  return (
-                    <span
-                      key={key}
-                      data-series={key}
-                      data-recorded={award?.amount != null}
-                      style={{
-                        blockSize: width(Number(award?.amount) / max || 0),
-                      }}
-                    />
-                  )
-                })}
-              </span>
-              <strong>{row.year}</strong>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function PlotDetails({ selected, columns, currency, onDrill, drillLabel }) {
   return (
-    <div className="insight-detail" role="region" aria-label="Selected values">
+    <div className="insight-detail">
       <div className="insight-detail-heading">
         <strong>{selected.group_name ?? selected.year}</strong>
         {onDrill && (
@@ -292,9 +276,7 @@ export default function InsightChart({
   onDrill,
   drillLabel,
 }) {
-  const [hovered, setHovered] = useState(null)
-  const [focused, setFocused] = useState(null)
-  const [pinned, setPinned] = useState(null)
+  const details = useInsightDetails()
   const plotRows =
     type === 'timeline'
       ? Array.from({ length: year - startYear + 1 }, (_, index) => ({
@@ -309,57 +291,64 @@ export default function InsightChart({
               : row.eligible > 0,
         )
   const keyOf = (row) => row.group_id ?? row.year
-  const selected =
-    plotRows.find((row) => keyOf(row) === (hovered ?? focused ?? pinned)) ??
-    plotRows.find((row) => row.awards?.length) ??
-    plotRows[0]
-  if (!selected) return null
-  const isActive = (key) => keyOf(selected) === key
-  const markProps = (key) => ({
-    'aria-pressed': pinned === key,
-    onPointerEnter: (event) => {
-      if (event.pointerType === 'mouse') setHovered(key)
-    },
-    onPointerLeave: () => setHovered(null),
-    onFocus: (event) => {
-      if (event.currentTarget.matches(':focus-visible')) setFocused(key)
-    },
-    onBlur: () => setFocused(null),
-  })
+  const selected = plotRows.find((row) => keyOf(row) === details.entry?.key)
+  if (!plotRows.length) return null
   const plotProps = {
     rows: plotRows,
     currency,
     series,
-    isActive,
-    markProps,
-    onPin: setPinned,
+    isActive: (key) => details.entry?.key === key,
+    markProps: details.trigger,
+    onPin: details.pin,
   }
   return (
     <div className="insight-chart" role="group" aria-label="Interactive chart">
-      {type !== 'treemap' && (
+      {series.length > 0 && (
         <ul className="insight-legend" aria-label="Chart legend">
           {series.map(([key, label]) => (
             <li key={key}>
               <i data-series={key} aria-hidden="true" />
               {label}
+              <InsightHelp label={label}>{helpFor(label)}</InsightHelp>
             </li>
           ))}
         </ul>
+      )}
+      {type === 'timeline' && (
+        <div className="insight-equity-key">
+          <span>
+            <i data-partial="true" /> Partial total
+          </span>
+          <span>
+            <i data-zero="true" /> Recorded zero
+          </span>
+          <InsightHelp label="Equity markers">
+            A partial point includes recorded allocations only. A square marks a
+            reported total of zero. Missing amounts and years with no applicable
+            awards leave gaps.
+          </InsightHelp>
+        </div>
       )}
       {type === 'treemap' ? (
         <Treemap {...plotProps} />
       ) : type === 'timeline' ? (
         <TimelinePlot {...plotProps} />
+      ) : type === 'scatter' ? (
+        <ScatterPlot {...plotProps} />
       ) : (
         <HorizontalPlot type={type} {...plotProps} />
       )}
-      <PlotDetails
-        selected={selected}
-        columns={columns}
-        currency={currency}
-        onDrill={onDrill}
-        drillLabel={drillLabel}
-      />
+      {selected && (
+        <InsightCard details={details} label="Selected values">
+          <PlotDetails
+            selected={selected}
+            columns={columns}
+            currency={currency}
+            onDrill={details.entry.pinned ? onDrill : null}
+            drillLabel={drillLabel}
+          />
+        </InsightCard>
+      )}
     </div>
   )
 }

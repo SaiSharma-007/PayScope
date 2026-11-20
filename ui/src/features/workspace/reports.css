@@ -61,6 +61,8 @@
 }
 
 .insight-view-grid svg { flex: none; }
+.insight-view-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; min-inline-size: 0; }
+.insight-view-choice a { overflow-wrap: anywhere; }
 .insight-view-grid a[aria-current='page'] {
   color: var(--primary);
   border-color: var(--divider);
@@ -83,7 +85,7 @@
   margin-block: 14px 10px;
 }
 
-.insight-primary-fields .comp-field > label {
+.insight-primary-fields .comp-field label {
   font-weight: 600;
   color: var(--muted);
   font-size: 13px;
@@ -298,25 +300,20 @@
   background: var(--median);
 }
 
-.insight-pair, .insight-stack {
+.insight-stack {
   position: absolute;
   inset: 0;
   display: flex;
-  justify-content: center;
-  gap: 3px;
-  flex-direction: column;
+  align-items: center;
   min-inline-size: 0;
 }
 
-.insight-stack { flex-direction: row; justify-content: flex-start; align-items: center; gap: 0; }
-.insight-pair > span, .insight-stack > span {
+.insight-stack > span {
   flex-shrink: 0;
   display: block;
-  block-size: 7px;
-  border-radius: 2px;
+  block-size: 17px;
   background: var(--series);
 }
-.insight-stack > span { block-size: 17px; border-radius: 0; }
 .insight-stack > span:first-child { border-start-start-radius: 3px; border-end-start-radius: 3px; }
 .insight-stack > span:last-child { border-start-end-radius: 3px; border-end-end-radius: 3px; }
 
@@ -353,30 +350,16 @@
   gap: 7px;
 }
 
-.insight-y-axis {
-  display: grid;
-  grid-template-rows: 0 1fr 0;
-  align-items: center;
-  block-size: var(--insight-timeline-height);
-  margin-block-start: 5px;
-  text-align: end;
-  color: var(--muted);
-  font: 400 11px var(--font-mono);
-}
-
 .insight-timeline-scroll { overflow: auto hidden; }
 .insight-timeline {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--years), minmax(44px, 1fr));
   min-inline-size: calc(var(--years) * 44px);
-  background-image: linear-gradient(var(--divider) 1px, transparent 1px);
-  background-size: 100% calc(var(--insight-timeline-height) / 2);
-  background-position-y: 5px;
-  background-repeat: repeat-y;
-  background-clip: content-box;
 }
 
 .insight-year {
+  position: relative;
   display: grid;
   grid-template-rows: var(--insight-timeline-height) auto;
   min-inline-size: 0;
@@ -388,20 +371,6 @@
   cursor: pointer;
 }
 
-.insight-year-bars {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 4px;
-  inline-size: 100%;
-  box-shadow: 0 1px var(--divider);
-}
-.insight-year-bars > span {
-  inline-size: min(35%, 20px);
-  border-radius: 3px 3px 0 0;
-  background: var(--series);
-}
-.insight-year-bars > [data-recorded='true'] { min-block-size: 2px; }
 .insight-year strong { padding-block: 5px; font: 500 11px var(--font-mono); }
 
 .insight-detail {
@@ -442,6 +411,7 @@
 .insight-table-drill { display: flex; }
 .insight-table-heading { margin-block: 15px 8px; }
 .insight-table-heading h4 { margin: 0; font-size: 15px; }
+.insight-column-help { display: none; }
 .insight-table-wrap { min-inline-size: 0; }
 .report-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: start; font-size: 13px; }
 .report-table :is(th, td) { padding: 10px 7px; border-bottom: 1px solid var(--divider); overflow-wrap: anywhere; }
@@ -473,9 +443,173 @@
 .insight-chart-placeholder > :nth-child(2) { max-inline-size: 79%; }
 .insight-chart-placeholder > :nth-child(3) { max-inline-size: 56%; }
 
+.insight-defined, .insight-panel-coverage {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.insight-help, .insight-float-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: 26px;
+  block-size: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.insight-help:is(:focus-visible, [aria-expanded='true']), .insight-float-close:is(:focus-visible, :hover) {
+  color: var(--primary);
+  background: var(--surface-subtle);
+  border-color: var(--divider);
+}
+
+.insight-select-help { position: relative; min-inline-size: 0; }
+.insight-select-help > .insight-help { position: absolute; top: -3px; inset-inline-end: 0; }
+.insight-float[popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  inline-size: max-content;
+  max-inline-size: min(24rem, calc(100vw - 20px));
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--shadow) 35%, transparent);
+  font: 400 13px/1.45 var(--font-sans);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.insight-float[role='region'] { padding-inline-end: 36px; }
+.insight-float .insight-detail { margin: 0; padding: 0; border: 0; background: transparent; }
+.insight-float .insight-detail-heading { align-items: flex-start; flex-wrap: wrap; }
+.insight-float .insight-detail-series { margin-block: 6px 3px; }
+.insight-float .insight-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.insight-float-close { position: absolute; inset: 5px 5px auto auto; }
+.insight-help-copy { display: block; margin-block-start: 4px; max-inline-size: 19rem; }
+@media (pointer: fine) {
+  .insight-primary-fields .comp-field > .insight-defined { block-size: 17px; align-content: center; }
+}
+.insight-report-heading .insight-view-description { color: var(--foreground); max-inline-size: 62ch; }
+.insight-reading, .insight-exclusions {
+  margin-block-start: 14px;
+  padding: 10px 12px;
+  border-inline-start: 3px solid var(--range);
+  background: var(--canvas);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.insight-exclusions ul { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 6px 0; padding-inline-start: 16px; }
+.insight-exclusions a { color: var(--primary); text-decoration: underline; }
+
+.insight-dot-link, .insight-endpoint { position: absolute; top: 50%; transform: translateY(-50%); }
+.insight-dot-link { block-size: 2px; background: var(--border); }
+.insight-endpoint, .insight-country-point > span, .insight-equity-point, .insight-equity-key i {
+  inline-size: 11px;
+  block-size: 11px;
+  border: 1px solid var(--surface);
+  border-radius: 50%;
+  background: var(--series, var(--primary));
+  box-shadow: 0 0 0 1px var(--series, var(--primary));
+}
+.insight-endpoint { transform: translate(-50%, -50%); }
+.insight-endpoint:is([data-series='target_ctc'], [data-series='payroll_share']) { border-radius: 2px; }
+.insight-endpoint[data-coincident='true']:is([data-series='guaranteed_ctc'], [data-series='headcount_share']) {
+  z-index: 1;
+  inline-size: 7px;
+  block-size: 7px;
+}
+.insight-missing-point { position: absolute; right: 8px; top: 6px; color: var(--muted); font-size: 11px; background: var(--surface); }
+
+.insight-scatter {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: clamp(190px, 27vw, 310px) auto;
+  gap: 8px;
+}
+.insight-scatter-area {
+  position: relative;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background-image: linear-gradient(to right, var(--divider) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--divider) 1px, transparent 1px);
+  background-size: 23% 46%;
+  background-position: 4% 4%;
+}
+.insight-vertical-axis { position: relative; min-inline-size: 2rem; color: var(--muted); font: 400 11px var(--font-mono); }
+.insight-vertical-axis > span { position: absolute; inset-inline-end: 0; transform: translateY(-50%); }
+.insight-vertical-axis > .insight-vertical-label {
+  top: 50%;
+  inset-inline-end: calc(100% + 1px);
+  writing-mode: vertical-rl;
+  transform: translateY(-50%) rotate(180deg);
+  white-space: nowrap;
+}
+.insight-scatter .insight-vertical-axis { margin-inline-start: 16px; }
+.insight-country-point {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  inline-size: 38px;
+  block-size: 38px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.insight-country-point small {
+  position: absolute;
+  inset-inline-start: 70%;
+  color: var(--foreground);
+  font: 500 11px var(--font-mono);
+  pointer-events: none;
+}
+.insight-country-point small[data-align='left'] { inset-inline-start: auto; inset-inline-end: 70%; }
+.insight-country-point:is(:focus-visible, [data-active='true']) { z-index: 1; }
+.insight-country-point[data-active='true'] > span { outline: 2px solid var(--primary); outline-offset: 3px; }
+.insight-scatter-axis { grid-column: 2; color: var(--muted); text-align: center; font-size: 12px; }
+.insight-scatter-axis div { display: flex; justify-content: space-between; padding-inline: 4%; font: 400 11px var(--font-mono); }
+
+.insight-timeline-frame .insight-vertical-axis { height: var(--insight-timeline-height); margin-block-start: 5px; }
+.insight-equity-lines {
+  position: absolute;
+  inset: 5px 0 auto;
+  inline-size: 100%;
+  block-size: var(--insight-timeline-height);
+  pointer-events: none;
+}
+.insight-equity-lines line { stroke: var(--series); stroke-width: 2px; }
+.insight-equity-lines .insight-equity-guide { stroke: var(--divider); stroke-width: 1px; }
+.insight-equity-lines [data-partial='true'] { stroke-dasharray: 5px 3px; }
+.insight-year[data-active='true'] { background: color-mix(in srgb, var(--surface-subtle) 65%, transparent); }
+.insight-year-plot { position: relative; inline-size: 100%; }
+.insight-equity-point { position: absolute; left: 50%; transform: translate(-50%, -50%); }
+.insight-equity-point[data-series='option'] { z-index: 1; inline-size: 8px; block-size: 8px; }
+.insight-equity-point[data-partial='true'], .insight-equity-key [data-partial='true'] { background: var(--surface); border-color: var(--series, var(--primary)); }
+.insight-equity-point[data-zero='true'], .insight-equity-key [data-zero='true'] { border-radius: 1px; }
+.insight-equity-key { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin-block-end: 8px; font-size: 12px; color: var(--muted); }
+.insight-equity-key span { display: inline-flex; align-items: center; gap: 6px; }
+
 @media (hover: hover) and (pointer: fine) {
   .insight-view-grid a:hover { background: var(--surface); }
   .insight-text-button:hover { text-decoration: underline; }
+  .insight-help:hover { background: var(--surface-subtle); color: var(--primary); }
 }
 
 @media (max-width: 930px) {
@@ -508,6 +642,12 @@
     height: 1px;
     overflow: hidden;
   }
+  .report-table thead .insight-help { display: none; }
+  .insight-column-help { display: block; margin-block-end: 9px; font-size: 13px; }
+  .insight-column-help summary { min-block-size: 44px; padding-block: 11px; color: var(--primary); cursor: pointer; }
+  .insight-column-help dl { margin: 0; }
+  .insight-column-help dt { font-weight: 650; }
+  .insight-column-help dd { margin: 0 0 8px; color: var(--muted); }
   .report-table tr {
     display: block;
     border: 1px solid var(--divider);
@@ -524,6 +664,9 @@
 
 @media (pointer: coarse) {
   .insight-primary-fields input { font-size: 16px; }
+  .insight-help, .insight-float-close { inline-size: 44px; block-size: 44px; }
+  .insight-select-help > .insight-help { top: -11px; }
+  .insight-float[role='region'] { padding-inline-end: 48px; }
 }
 
 @media (max-width: 480px) {
@@ -536,9 +679,16 @@
 @media (forced-colors: active) {
   .insight-track, .insight-tile, .insight-year { border-color: ButtonText; }
   .insight-box, .insight-median, .insight-whisker, .insight-whisker::before,
-  .insight-whisker::after, .insight-legend i, .insight-year-bars > span,
-  .insight-stack > span, .insight-pair > span { background: ButtonText; forced-color-adjust: none; }
+  .insight-whisker::after, .insight-legend i,
+  .insight-stack > span { background: ButtonText; forced-color-adjust: none; }
   .insight-median { background: Highlight; }
+  .insight-equity-lines line { stroke: ButtonText; }
+  .insight-endpoint, .insight-equity-point, .insight-country-point > span {
+    forced-color-adjust: none;
+    background: ButtonText;
+    border-color: Canvas;
+  }
+  .insight-equity-point[data-partial='true'] { background: Canvas; border-color: ButtonText; }
   .insight-view-grid a[aria-current='page'], .insight-mark[data-active='true'],
   .insight-year[data-active='true'], .insight-tile[data-active='true'] { border-color: Highlight; }
 }

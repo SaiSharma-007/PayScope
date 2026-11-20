@@ -120,7 +120,7 @@ function fixture(query) {
             {
               year,
               kind: 'rsu',
-              eligible: 2,
+              eligible: 0,
               recorded_zero: 0,
               missing: 2,
               amount: null,
@@ -261,13 +261,18 @@ test('shared filters, all eight views, and keyboard and pointer chart values', a
     const second = page.getByRole('button', { name: new RegExp(longName) })
     await second.focus()
     await second.press('Enter')
-    assert.equal(await second.getAttribute('aria-pressed'), 'true')
+    assert.equal(await second.getAttribute('aria-expanded'), 'true')
     assert.match(
       await selected(page).innerText(),
       /organizational development[\s\S]*INR 145\.00/,
     )
+    await page.keyboard.press('Escape')
+    await selected(page).waitFor({ state: 'hidden' })
     await page.getByRole('button', { name: /^Engineering/ }).hover()
-    assert.match(await selected(page).innerText(), /^Engineering/)
+    assert.match(
+      await page.getByRole('tooltip', { name: 'Selected values' }).innerText(),
+      /^Engineering/,
+    )
     await snapshot(page, 'distribution-desktop')
 
     await Promise.all([
@@ -323,6 +328,23 @@ test('shared filters, all eight views, and keyboard and pointer chart values', a
           await selected(page).innerText(),
           /Missing allocations\s*2/,
         )
+        assert.equal(
+          await page.locator('.insight-timeline [data-series="rsu"]').count(),
+          1,
+        )
+      }
+      if (viewId === 'headcount_vs_payroll') {
+        await table(page).getByRole('cell', { name: '18.15 pp' }).waitFor()
+        await page.getByText(/18\.15 percentage points higher/).waitFor()
+      }
+      if (viewId === 'guaranteed_vs_target_ctc') {
+        await table(page)
+          .getByRole('cell', { name: 'INR 200.00' })
+          .first()
+          .waitFor()
+      }
+      if (viewId === 'country_comparison') {
+        await page.locator('.insight-country-point').waitFor()
       }
     }
   })
@@ -337,9 +359,14 @@ test('payroll drill-down, browser back, and bookmarks preserve report state', as
     await page
       .getByRole('button', { name: /India, 78\.15% of payroll/ })
       .click()
-    await selected(page)
-      .getByRole('button', { name: 'View departments' })
-      .click()
+    await selected(page).waitFor()
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    assert.match(
+      await page.evaluate(() => document.activeElement.textContent),
+      /View departments/,
+    )
+    await page.keyboard.press('Enter')
     await table(page)
       .getByRole('rowheader', { name: /Engineering/ })
       .waitFor()
@@ -456,6 +483,123 @@ test('skeletons block stale rows, late requests lose, and errors can retry', asy
   }
 })
 
+test('help and chart details remain near their anchors in long reports', async () => {
+  await withFixture(
+    async (page) => {
+      await page.goto(
+        `${origin}/insights?year=2026&country_code=IN&group_by=department`,
+      )
+      await table(page).waitFor()
+      const help = page.getByRole('button', {
+        name: 'About Group by',
+        exact: true,
+      })
+      await help.focus()
+      const helpCard = page.getByRole('tooltip', { name: 'About Group by' })
+      await helpCard.getByText(/Department filter limits/).waitFor()
+      await page.keyboard.press('Escape')
+      await helpCard.waitFor({ state: 'hidden' })
+
+      for (const name of ['Team 1', 'Team 20']) {
+        const mark = page.getByRole('button', {
+          name: new RegExp(`^${name} INR`),
+        })
+        await mark.hover()
+        const tooltip = page.getByRole('tooltip', { name: 'Selected values' })
+        await tooltip.getByText(name, { exact: true }).waitFor()
+        const bounds = await tooltip.boundingBox()
+        const anchor = await mark.boundingBox()
+        assert(bounds.x >= 0 && bounds.x + bounds.width <= 1100)
+        assert(bounds.y >= 0 && bounds.y + bounds.height <= 700)
+        assert(
+          Math.min(
+            Math.abs(bounds.y - anchor.y - anchor.height),
+            Math.abs(bounds.y + bounds.height - anchor.y),
+          ) < 20,
+        )
+        await mark.click()
+        await selected(page)
+          .getByRole('button', { name: 'Close details' })
+          .waitFor()
+        await page.keyboard.press('Tab')
+        assert.equal(
+          await page.evaluate(() =>
+            document.activeElement.getAttribute('aria-label'),
+          ),
+          'Close details',
+        )
+        if (name === 'Team 1') await page.keyboard.press('Escape')
+        else await page.mouse.click(4, 650)
+        await selected(page).waitFor({ state: 'hidden' })
+      }
+    },
+    {
+      viewport: { width: 1100, height: 700 },
+      handle: async (route, query) => {
+        const result = fixture(query)
+        const currency = result.currencies[0]
+        currency.rows = Array.from({ length: 20 }, (_, index) => ({
+          ...currency.rows[0],
+          group_id: String(index + 1),
+          group_name: `Team ${index + 1}`,
+        }))
+        currency.group_count = currency.rows.length
+        await route.fulfill({ json: result })
+        return true
+      },
+    },
+  )
+})
+
+test('unavailable CTC explains each exclusion using API counts', async () => {
+  await withFixture(
+    async (page) => {
+      await page.goto(
+        `${origin}/insights?insight=guaranteed_vs_target_ctc&year=2026&country_code=IN`,
+      )
+      await page.getByText('Why some employees are excluded').waitFor()
+      await page
+        .getByText('Without an equity status 5', { exact: true })
+        .waitFor()
+      await page
+        .getByText('Missing a usable award allocation 3', { exact: true })
+        .waitFor()
+      await page
+        .getByRole('link', { name: 'Review employee compensation and equity' })
+        .waitFor()
+      assert.equal(
+        await page.getByRole('group', { name: 'Interactive chart' }).count(),
+        0,
+      )
+    },
+    {
+      handle: async (route, query) => {
+        const result = fixture(query)
+        const currency = result.currencies[0]
+        const reasons = {
+          no_effective_package: 2,
+          equity_unconfigured: 5,
+          missing_allocation: 3,
+        }
+        Object.assign(currency, {
+          eligible: 0,
+          missing: 10,
+          missing_reasons: reasons,
+        })
+        Object.assign(currency.rows[0], {
+          eligible: 0,
+          missing: 10,
+          guaranteed_ctc: null,
+          target_ctc: null,
+          missing_reasons: reasons,
+        })
+        await route.fulfill({ json: result })
+        return true
+      },
+    },
+  )
+})
+
 test('touch, long labels, dark theme, and reduced motion at narrow widths', async () => {
   await withFixture(
     async (page) => {
@@ -471,8 +615,19 @@ test('touch, long labels, dark theme, and reduced motion at narrow widths', asyn
         name: new RegExp(departments[1].name),
       })
       await mark.tap()
-      assert.equal(await mark.getAttribute('aria-pressed'), 'true')
+      assert.equal(await mark.getAttribute('aria-expanded'), 'true')
       assert.match(await selected(page).innerText(), /INR 90\.00/)
+      await selected(page).getByRole('button', { name: 'Close details' }).tap()
+      const help = page.getByRole('button', {
+        name: 'About Group by',
+        exact: true,
+      })
+      await help.tap()
+      await page
+        .getByRole('region', { name: 'About Group by' })
+        .getByText(/Department filter limits/)
+        .waitFor()
+      await page.keyboard.press('Escape')
       await page.evaluate(() => scrollTo(0, 0))
       await snapshot(page, 'distribution-mobile-dark')
       await page.getByRole('combobox', { name: 'Insight view' }).tap()
@@ -485,6 +640,12 @@ test('touch, long labels, dark theme, and reduced motion at narrow widths', asyn
       await table(page)
         .getByRole('rowheader', { name: '2020 · Stock options' })
         .waitFor()
+      await page.getByRole('button', { name: '2026', exact: true }).tap()
+      const yearCard = selected(page)
+      await yearCard.getByText('Missing allocations', { exact: true }).waitFor()
+      const bounds = await yearCard.boundingBox()
+      assert(bounds.x >= 0 && bounds.x + bounds.width <= 320)
+      await yearCard.getByRole('button', { name: 'Close details' }).tap()
       await page.getByRole('switch', { name: 'Dark theme' }).tap()
       assert.equal(
         await page.locator('html').getAttribute('data-theme'),
@@ -507,14 +668,16 @@ test('touch, long labels, dark theme, and reduced motion at narrow widths', asyn
         )
         if (width === 390) {
           const chart = page.locator('.insight-timeline-frame')
-          const tick = await chart.getByText('75', { exact: true }).boundingBox()
-          const bar = await chart
-            .locator('.insight-year-bars [data-series=rsu]')
+          const tick = await chart
+            .getByText('75', { exact: true })
+            .boundingBox()
+          const point = await chart
+            .locator('.insight-equity-point[data-series=rsu]')
             .first()
             .boundingBox()
           assert(
-            Math.abs(tick.y + tick.height / 2 - bar.y) < 3,
-            'The tallest bar aligns with the top axis tick.',
+            Math.abs(tick.y + tick.height / 2 - point.y - point.height / 2) < 3,
+            'The highest equity point aligns with the top axis tick.',
           )
           await snapshot(page, 'equity-mobile')
           await snapshot(chart, 'equity-axis-mobile')
@@ -632,6 +795,12 @@ test(
         const value = read(first())
         assert(value != null, `The ${label} fixture needs a recorded value.`)
         const display = share ? `${value}%` : asMoney(value)
+        const row = first()
+        await page
+          .getByRole('group', { name: 'Interactive chart' })
+          .getByRole('button', { name: row.group_name ?? String(row.year) })
+          .first()
+          .click()
         await selected(page)
           .getByText(display, { exact: true })
           .first()
@@ -642,6 +811,7 @@ test(
           .waitFor()
         if (view === 'payroll_concentration')
           await snapshot(page, 'payroll-live')
+        await page.keyboard.press('Escape')
       }
 
       await Promise.all([

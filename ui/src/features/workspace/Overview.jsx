@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from '../compensation/Fields'
 import { useWorkspaceReport } from './useWorkspaceReport'
+import './reports.css'
 
 const number = new Intl.NumberFormat('en')
 
