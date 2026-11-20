@@ -196,15 +196,27 @@ Use 28 px outer panel corners, 20 px inset group corners, and 14 px field and bu
 | Charts and tables | Keep scales and labels stable during refreshes. Use a horizontal band from minimum to maximum, a diamond for the median, and the exact-values table for keyboard and touch access. Preserve currency separation and use a visible label for missing pay. |
 | Ask about pay | Use a rounded outer panel and a small gradient emblem. Make useful example questions individually pressable in softly raised rows. Keep tool activity and answer text readable during a stream. Announce meaningful status changes in batches and keep already received content visible on interruption. |
 
-### Theme switch
+### Compensation rules and employee editing
 
-The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview, salary insights, and activity are visibly marked previews with illustrative content. Employees remains the live directory. Settings is labeled Soon and unavailable.
+Compensation rules are a live workspace section. The rule list uses the established inset filters and a single continuous list with country, currency, version, and active status. A rule editor pairs the reusable definition with an explicitly unsaved annual calculation preview. Component rows expose readable names and stable codes, category, fixed amount or percentage of annual basic pay, guaranteed/target commitment, and cost inclusion. Use the existing palette, field geometry, and shared dropdown owner rather than another control system.
+
+Inspect immutable versions through a version selector. Entering edit mode never publishes or submits a form. Publishing requires a deliberate save after a change, creates a new version, and leaves existing packages attached to their saved version. Inactive rules remain inspectable and can be reactivated.
+
+The employee Compensation action opens a 680 px right drawer, becoming full width on narrow screens. Its header and actions remain visible while the content scrolls. The saved package, entered basic pay, applicable rule, and before/after preview stay separate. Calculated lines explain their formula. Overrides expose the original calculation, the entered amount, and a required reason. The Equity section shows the selected calendar year, saved cash and benefits, annual equity, guaranteed CTC, and CTC including targets. Award valuation and annual allocation have separate labels and currencies. Missing allocations remain visible as incomplete.
+
+The drawer puts guaranteed and target costs at the top beside an expandable saved breakdown. Editable rule components share one list, with short field labels and a multiline reason for overrides. A successful preview moves focus to the review and makes Save the primary action. Any input change invalidates that preview. A confirmed save updates only the matching row and preserves search, filters, page, and table scroll. Conflicts retain entries and offer an explicit reload. Discarding requires confirmation. Native modal dialogs contain focus, support Escape and restore the trigger. Shared dropdown portals mount inside the open drawer. Date entry uses the native date input for this English-only iteration, with date-only storage and a typed entry path. Saves apply immediately and accept today or earlier dates.
+
+Seeded packages use clearly named demo country rules and components. Each old amount is interpreted as the original total cost and is preserved exactly through a synthetic split. Fixed and percentage figures represent example company policies, not statutory calculations.
+
+### Theme preference behavior
+
+The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview shows live workforce coverage and links into country reports. Salary insights separates monetary comparisons by currency, pairs selectable range charts with exact-value tables, and shows country cost composition with expandable components. Activity is labeled as a preview. Settings is labeled Soon and unavailable.
 
 Resolve the saved preference before first paint and follow the device theme when no choice is saved. Apply `data-theme` and `color-scheme` together. Keep the switch labeled **Dark theme**, expose its checked state, and persist changes.
 
 Crossfade the outgoing page snapshot over 240 ms using the browser View Transition API, applying all theme tokens together underneath. Fade opacity with no page movement. If another toggle arrives, finish the outgoing transition and apply the latest choice immediately. Browsers without this API transition surface, text, border, and shadow colors over 220 ms. Keyboard and reduced-motion switches apply immediately. Preserve the pre-paint preference so reloads start in the chosen theme.
 
-The directory uses a bounded scroll region with sticky column headers on desktop and labeled employee cards below 700 px. Keep salaries aligned with their currency code. Page size offers 10, 25, or 50 rows and resets pagination when changed. Loading placeholders reserve the initial row geometry, while refreshes retain previous results and their page range until the response arrives.
+The directory scrolls with the page and keeps column headers visible beneath the workspace bar on desktop. Below 700 px, labeled employee cards place the compensation amount beside its View action. Page size defaults to 10, with 25 and 50 as options. Changing pages returns focus to the results. Refreshes retain previous results and their page range until the response arrives.
 
 ### Motion
 

@@ -6,6 +6,20 @@ The Salary Management app gives an HR Manager one place to maintain current sala
 
 ## Product behavior
 
+### Compensation extension (Plan 1)
+
+HR defines reusable country/currency rules with custom components. Each component has a stable code, label, category (earnings, employer cost, or employee deduction), guaranteed/target commitment, explicit cost inclusion, and either a fixed annual amount or a percentage of basic pay. Rule versions are immutable; publishing a version does not change existing packages. Deactivation prevents new applications while saved packages retain their version.
+
+An employee package records annual basic pay, currency, effective date, applied rule version or manual definitions, and saved component amounts. Employee overrides require a reason. One backend calculator powers preview and save, and the UI requires reviewing a preview before saving. Employee deductions stay outside company-cost totals. Guaranteed cost and cost including target components are separate; neither is take-home pay. Equity is not configured until Plan 2, so this release labels totals as annual cash and benefit costs.
+
+Amounts use decimal strings and half-up rounding to two places per line. Basic pay is 0.01–999,999,999.99; components and each subtotal cannot exceed 999,999,999.99. Packages/rules allow at most 32 components. Percentages allow four decimal places from zero through 10,000; fixed amounts and overrides allow two. Component codes are unique, basic pay cannot be duplicated, and arbitrary expressions or references to other components are unsupported. Effective dates are date-only, today or earlier; changes apply immediately rather than being scheduled. Package saves and report revisions commit atomically. Stale package/rule version writes return 409.
+
+The user approved reframing the 10,000 fictional employees by treating each old recorded amount as total company cost and distributing it into illustrative country components while preserving the total exactly. Employee identities and legacy salary rows remain intact. The opt-in seed enrichment inserts only missing packages, records its balancing allowance as an override with a reason, and never overwrites an HR-edited package. Its country percentages are synthetic examples, not statutory contribution rates.
+
+The legacy `annual_gross_base` field and salary-summary endpoint remain compatibility interfaces over the original recorded amounts. They must not be interpreted as the new package basic pay or as live package cost reporting. Legacy writes return 409 after a package exists. Plan 2 adds package-based compensation reports, equity, and coverage-aware CTC.
+
+### Original core and future workflow
+
 - **Access.** One HR Manager account can sign in and sign out of the deployed demo. Employee, salary, analytics, and agent run endpoints require an authenticated HR session.
 - **Employee directory.** Every employee has a required, unique Employee ID. HR can search by name or Employee ID, combine country, department, and job title filters, and browse results in a consistent order with server-side pagination and a total matching count.
 - **Salary records.** HR can view, enter, or replace an employee's current annual gross base salary. Each salary has a validated amount and an explicit currency code. Monetary values retain decimal precision.

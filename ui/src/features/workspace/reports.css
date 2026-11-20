@@ -1,0 +1,220 @@
+.report-landscape {
+  padding: clamp(16px, 3vw, 30px);
+  margin-bottom: 18px;
+}
+.workspace-metrics + .report-landscape {
+  margin-top: 22px;
+}
+.workspace-metric h2 {
+  font-size: 13px;
+}
+.coverage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 2px;
+  border-top: 1px solid var(--divider);
+  font-size: 14px;
+}
+.coverage-row span {
+  color: var(--muted);
+}
+.report-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+  gap: 14px;
+}
+.report-results {
+  display: grid;
+}
+.report-ranges {
+  margin-bottom: 22px;
+}
+.range-axis,
+.report-range-button {
+  display: grid;
+  grid-template-columns: minmax(84px, 1fr) minmax(50px, 3fr) minmax(100px, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+.range-axis {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.range-axis > div {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  margin-inline: 4px;
+}
+.report-range-button {
+  padding: 10px 0;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-size: 13px;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+.report-range-button strong {
+  font: 500 12px var(--font-mono);
+  text-align: right;
+}
+.report-range-row > p {
+  margin: 0 0 8px;
+}
+.range-track {
+  position: relative;
+  height: 7px;
+  background: var(--surface-subtle);
+  border-radius: 8px;
+  margin-inline: 4px;
+}
+.range-span {
+  position: absolute;
+  height: 100%;
+  min-width: 2px;
+  background: var(--primary);
+  border-radius: 8px;
+}
+.range-median {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--highlight);
+  border: 1px solid var(--border);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.report-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 13px;
+}
+.report-table :is(th, td) {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--divider);
+  overflow-wrap: anywhere;
+}
+.report-table thead {
+  background: var(--surface-subtle);
+}
+.report-table td,
+.report-table th:not(:first-child) {
+  text-align: right;
+}
+.report-table td {
+  font: 500 12px var(--font-mono);
+}
+.report-composition {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 246px), 1fr));
+  gap: 12px;
+}
+.report-country {
+  padding: 17px;
+  border: 1px solid var(--divider);
+  border-radius: 15px;
+  background: var(--canvas);
+  min-width: 0;
+}
+.report-country h3 span {
+  font: 500 11px var(--font-mono);
+  color: var(--muted);
+}
+.country-cost {
+  font: 500 15px var(--font-mono);
+  margin: 13px 0;
+  overflow-wrap: anywhere;
+}
+.composition-bar {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  gap: 2px;
+}
+.composition-bar span {
+  background: var(--primary);
+}
+.composition-bar [data-category='employer_cost'] {
+  background: var(--range);
+}
+.composition-bar [data-category='equity'] {
+  background: var(--highlight);
+}
+.report-country ul {
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.report-country li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-block: 6px;
+  overflow-wrap: anywhere;
+}
+.report-country small {
+  display: block;
+  color: var(--muted);
+}
+.report-country summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 13px;
+  min-height: 36px;
+}
+@media (max-width: 720px) {
+  .range-axis {
+    display: none;
+  }
+  .range-axis,
+  .report-range-button {
+    grid-template-columns: minmax(0, 1fr) minmax(34px, 1fr) minmax(88px, 1fr);
+    gap: 8px;
+  }
+  .coverage-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
+    gap: 8px;
+  }
+  .report-table,
+  .report-table tbody {
+    display: block;
+  }
+  .report-table thead {
+    position: absolute;
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .report-table tr {
+    display: block;
+    border: 1px solid var(--divider);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+  }
+  .report-table :is(th, td) {
+    padding: 6px 0;
+  }
+  .report-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .report-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font: 400 12px var(--font-sans);
+  }
+  .report-table td:last-child {
+    border: 0;
+  }
+}

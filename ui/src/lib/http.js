@@ -1,7 +1,9 @@
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, fields = [], code = null) {
     super(message)
     this.status = status
+    this.fields = fields
+    this.code = code
   }
 }
 
@@ -36,8 +38,13 @@ export async function request(path, { csrf, ...options } = {}) {
         ? detail?.message
         : null
     throw new ApiError(
-      message || 'This request could not be completed. Please try again.',
+      message ||
+        (Array.isArray(detail)
+          ? 'Check the highlighted fields and try again.'
+          : 'This request could not be completed. Please try again.'),
       response.status,
+      Array.isArray(detail) ? detail : [],
+      detail?.code,
     )
   }
   return response.status === 204 ? null : response.json()

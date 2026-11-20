@@ -3,6 +3,7 @@ from sqlalchemy import BigInteger, RowMapping, func, literal, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from payscope.employees.schemas import (
+    CompensationSummary,
     EmployeeDimensions,
     EmployeeFilters,
     EmployeePage,
@@ -10,6 +11,7 @@ from payscope.employees.schemas import (
     ReferenceData,
 )
 from payscope.models import (
+    compensation_packages,
     countries,
     currencies,
     departments,
@@ -32,8 +34,17 @@ EMPLOYEE_DETAILS = select(
     employee_salaries.c.annual_gross_base,
     employee_salaries.c.currency_code,
     employee_salaries.c.updated_at,
+    compensation_packages.c.version.label("package_version"),
+    compensation_packages.c.annual_basic_pay.label("package_basic"),
+    compensation_packages.c.currency_code.label("package_currency"),
+    compensation_packages.c.guaranteed_cost.label("package_guaranteed"),
+    compensation_packages.c.target_cost.label("package_target"),
 ).select_from(
-    employees.join(countries).join(departments).join(job_titles).outerjoin(employee_salaries)
+    employees.join(countries)
+    .join(departments)
+    .join(job_titles)
+    .outerjoin(employee_salaries)
+    .outerjoin(compensation_packages)
 )
 
 
@@ -46,11 +57,28 @@ def missing_employee() -> HTTPException:
 
 
 def employee_response(row: RowMapping) -> EmployeeResponse:
-    salary = SalaryResponse.model_validate(row) if row["annual_gross_base"] is not None else None
-    return EmployeeResponse(**row, salary=salary)
+    salary = (
+        SalaryResponse.model_validate(row)
+        if row["annual_gross_base"] is not None
+        else None
+    )
+    compensation = (
+        CompensationSummary(
+            version=row["package_version"],
+            annual_basic_pay=row["package_basic"],
+            currency_code=row["package_currency"],
+            guaranteed_cost=row["package_guaranteed"],
+            target_cost=row["package_target"],
+        )
+        if row["package_version"] is not None
+        else None
+    )
+    return EmployeeResponse(**row, salary=salary, compensation=compensation)
 
 
-async def list_employees(database: AsyncSession, filters: EmployeeFilters) -> EmployeePage:
+async def list_employees(
+    database: AsyncSession, filters: EmployeeFilters
+) -> EmployeePage:
     matches = select(employees.c.id).where(*employee_dimensions(filters))
     if filters.search:
         matches = matches.where(
@@ -69,7 +97,9 @@ async def list_employees(database: AsyncSession, filters: EmployeeFilters) -> Em
     page = EMPLOYEE_DETAILS.where(employees.c.id.in_(page_ids)).subquery()
     total = select(func.count().label("total")).select_from(matching_ids).subquery()
     result = await database.execute(
-        select(total.c.total, page).select_from(total.outerjoin(page, true())).order_by(page.c.id)
+        select(total.c.total, page)
+        .select_from(total.outerjoin(page, true()))
+        .order_by(page.c.id)
     )
     rows = result.mappings().all()
     return EmployeePage(
@@ -81,7 +111,9 @@ async def list_employees(database: AsyncSession, filters: EmployeeFilters) -> Em
 
 
 async def get_employee(database: AsyncSession, employee_id: int) -> EmployeeResponse:
-    result = await database.execute(EMPLOYEE_DETAILS.where(employees.c.id == employee_id))
+    result = await database.execute(
+        EMPLOYEE_DETAILS.where(employees.c.id == employee_id)
+    )
     row = result.mappings().one_or_none()
     if row is None:
         raise missing_employee()

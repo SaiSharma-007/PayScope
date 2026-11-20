@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Search, Users, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Search, X } from 'lucide-react'
 import { request } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import SelectField from '../../components/SelectField'
 import EmployeeTable from './EmployeeTable'
+const CompensationDrawer = lazy(
+  () => import('../compensation/CompensationDrawer'),
+)
 
 export default function Employees() {
   const { expire } = useAuth()
@@ -13,6 +16,7 @@ export default function Employees() {
   const [options, setOptions] = useState(null)
   const [referenceError, setReferenceError] = useState('')
   const [retry, setRetry] = useState(0)
+  const [selectedEmployee, setSelectedEmployee] = useState(null)
   const tableRegion = useRef(null)
   const search = params.get('search') || ''
   const requestedPage = Number(params.get('page'))
@@ -20,7 +24,7 @@ export default function Employees() {
     Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
   const pageSize = [10, 25, 50].includes(Number(params.get('page_size')))
     ? Number(params.get('page_size'))
-    : 25
+    : 10
   const query = new URLSearchParams(params)
   query.set('page', page)
   query.set('page_size', pageSize)
@@ -49,7 +53,6 @@ export default function Employees() {
       .then((result) => {
         if (!controller.signal.aborted) {
           setData({ key: requestKey, result })
-          if (tableRegion.current) tableRegion.current.scrollTop = 0
         }
       })
       .catch((error) => {
@@ -87,36 +90,26 @@ export default function Employees() {
     'job_title_id',
   ].some((name) => params.get(name))
   function changePage(value) {
+    tableRegion.current?.focus({ preventScroll: true })
+    tableRegion.current?.scrollIntoView({ block: 'start' })
     const next = new URLSearchParams(params)
     next.set('page', value)
     setParams(next)
   }
   return (
     <main id="main" className="page employees-page">
-      <div className="workspace-heading">
-        <div>
-          <span className="eyebrow">YOUR WORKSPACE</span>
-          <h1>People, in focus.</h1>
-          <p>Current salaries. A clearer place to start.</p>
-        </div>
-      </div>
       <section
         className="panel directory-panel"
         aria-labelledby="directory-title"
       >
         <div className="directory-heading">
-          <div className="title-with-icon">
-            <span className="icon-tile">
-              <Users size={21} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 id="directory-title">Employees</h2>
-              <p>
-                {result
-                  ? `${result.total.toLocaleString()} matching ${result.total === 1 ? 'employee' : 'employees'}`
-                  : 'Finding your people…'}
-              </p>
-            </div>
+          <div className="directory-title">
+            <h1 id="directory-title">Employees</h1>
+            <p>
+              {result
+                ? `${result.total.toLocaleString()} matching ${result.total === 1 ? 'employee' : 'employees'}`
+                : 'Finding your people…'}
+            </p>
           </div>
           <span className="demo-label">Fictional demo data</span>
         </div>
@@ -150,10 +143,28 @@ export default function Employees() {
             </form>
           </div>
           {[
-            ['country_code', 'Country', options?.countries, 'code'],
-            ['department_id', 'Department', options?.departments, 'id'],
-            ['job_title_id', 'Job title', options?.job_titles, 'id'],
-          ].map(([name, label, entries, valueKey]) => (
+            [
+              'country_code',
+              'Country',
+              options?.countries,
+              'code',
+              'All countries',
+            ],
+            [
+              'department_id',
+              'Department',
+              options?.departments,
+              'id',
+              'All teams',
+            ],
+            [
+              'job_title_id',
+              'Job title',
+              options?.job_titles,
+              'id',
+              'All job titles',
+            ],
+          ].map(([name, label, entries, valueKey, placeholder]) => (
             <SelectField
               key={name}
               id={name}
@@ -161,7 +172,7 @@ export default function Employees() {
               disabled={!options}
               value={params.get(name) || ''}
               onChange={(value) => filter(name, value)}
-              placeholder={`All ${label === 'Country' ? 'countries' : label.toLowerCase() + 's'}`}
+              placeholder={placeholder}
               options={(entries || []).map((option) => ({
                 value: String(option[valueKey]),
                 label: option.name,
@@ -187,7 +198,7 @@ export default function Employees() {
                 : 'Loading employees…'
               : error
                 ? 'Results could not be updated.'
-                : 'Annual gross base pay · original currency'}
+                : 'Annual cash & benefits · original currency'}
           </p>
           {hasFilters && (
             <button className="clear-filters" onClick={() => setParams({})}>
@@ -207,8 +218,9 @@ export default function Employees() {
         <div
           className="table-region"
           ref={tableRegion}
+          role="region"
           aria-label="Employee results"
-          tabIndex={0}
+          tabIndex={-1}
           aria-busy={loading}
         >
           {!result && error ? (
@@ -246,11 +258,17 @@ export default function Employees() {
               </button>
             </div>
           ) : (
-            <EmployeeTable employees={result.items} />
+            <EmployeeTable
+              employees={result.items}
+              onCompensation={setSelectedEmployee}
+            />
           )}
         </div>
-        {result && (
-          <div className="pagination">
+        {result?.total > 0 && (
+          <nav
+            className="pagination directory-pagination"
+            aria-label="Employee pages"
+          >
             <span>
               {result.items.length
                 ? `${((result.page - 1) * result.page_size + 1).toLocaleString()}–${Math.min(result.page * result.page_size, result.total).toLocaleString()} of ${result.total.toLocaleString()}`
@@ -289,9 +307,37 @@ export default function Employees() {
                 <ArrowRight size={16} aria-hidden="true" />
               </button>
             </div>
-          </div>
+          </nav>
         )}
       </section>
+      {selectedEmployee && (
+        <Suspense
+          fallback={
+            <p className="comp-status" role="status">
+              Opening compensation…
+            </p>
+          }
+        >
+          <CompensationDrawer
+            key={selectedEmployee.id}
+            employee={selectedEmployee}
+            onClose={() => setSelectedEmployee(null)}
+            onSaved={(packageData) =>
+              setData((previous) => ({
+                ...previous,
+                result: {
+                  ...previous.result,
+                  items: previous.result.items.map((employee) =>
+                    employee.id === selectedEmployee.id
+                      ? { ...employee, compensation: packageData }
+                      : employee,
+                  ),
+                },
+              }))
+            }
+          />
+        </Suspense>
+      )}
     </main>
   )
 }

@@ -1,14 +1,11 @@
-function salaryText(salary) {
-  if (!salary) return 'Salary not entered'
-  const [whole, fraction] = salary.annual_gross_base.split('.')
-  return `${salary.currency_code} ${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${(fraction || '').padEnd(2, '0')}`
-}
+import { money } from '../compensation/shared'
+import { ChevronRight } from 'lucide-react'
 
-export default function EmployeeTable({ employees }) {
+export default function EmployeeTable({ employees, onCompensation }) {
   return (
     <table className="employee-table" role="table">
       <caption className="sr-only">
-        Employee directory and current annual gross base salaries
+        Employee directory and annual compensation
       </caption>
       <thead role="rowgroup">
         <tr role="row">
@@ -22,7 +19,10 @@ export default function EmployeeTable({ employees }) {
             Country
           </th>
           <th scope="col" role="columnheader" className="salary-cell">
-            Annual base salary
+            Annual compensation
+          </th>
+          <th scope="col" role="columnheader" className="employee-action-cell">
+            <span className="sr-only">Details</span>
           </th>
         </tr>
       </thead>
@@ -53,14 +53,43 @@ export default function EmployeeTable({ employees }) {
               </span>
             </td>
             <td role="cell" data-label="Country">
-              {employee.country_name}
+              <span className="employee-country">{employee.country_name}</span>
             </td>
             <td
               role="cell"
-              data-label="Annual base salary"
+              data-label="Annual compensation"
               className="salary-cell"
             >
-              {salaryText(employee.salary)}
+              <span>
+                {employee.compensation
+                  ? money(
+                      employee.compensation.guaranteed_cost,
+                      employee.compensation.currency_code,
+                    )
+                  : money(
+                      employee.salary?.annual_gross_base,
+                      employee.salary?.currency_code,
+                    )}
+                <small>
+                  {employee.compensation
+                    ? 'Guaranteed cash & benefits'
+                    : employee.salary
+                      ? 'Legacy recorded total'
+                      : 'No compensation record'}
+                </small>
+              </span>
+            </td>
+            <td role="cell" className="employee-action-cell">
+              <button
+                className="compensation-action"
+                type="button"
+                onClick={() => onCompensation(employee)}
+                aria-label={`Compensation for ${employee.full_name}`}
+                title="View compensation"
+              >
+                <span>View</span>
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
             </td>
           </tr>
         ))}

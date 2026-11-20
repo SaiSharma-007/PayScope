@@ -18,3 +18,14 @@ Redis used 829,728 bytes before the timed workloads and peaked at 966,848 bytes.
 Three read-only checks from the desktop to the configured Redis service measured about 1.0–1.35 seconds for a fresh connection and 332–397 ms for a warm lookup. Cache operations have a 1.5-second deadline and a single attempt.
 
 The local HTTP smoke test covered health, OpenAPI, sign-in, directory, and salary reports. Hosted API verification is pending a deployed endpoint.
+
+The November 20 compensation report smoke benchmark used the configured PostgreSQL and Redis services with 10,000 saved packages. These timings measure the report service directly from the desktop and include remote connections.
+
+| Concurrent calls | Cache | Samples | Median ms | p95 ms |
+| ---: | --- | ---: | ---: | ---: |
+| 1 | Cold | 1 | 6,015 | 6,015 |
+| 1 | Warm | 5 | 2,103 | 2,511 |
+| 5 | Cold | 5 | 5,059 | 5,088 |
+| 5 | Warm | 5 | 1,874 | 2,282 |
+
+The tested report occupied 5,986 payload bytes and 6,304 bytes per Redis key including overhead. Production report entries expire after 60 seconds and payloads larger than 16 KiB bypass storage. These small samples measure one report shape. They do not estimate service-wide Redis memory or production latency.

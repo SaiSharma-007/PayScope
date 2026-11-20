@@ -1,4 +1,5 @@
 @import './styles/tokens.css';
+@import './styles/compensation.css';
 
 * {
   box-sizing: border-box;
@@ -890,10 +891,12 @@ h3 {
   height: 100svh;
   display: flex;
   flex-direction: column;
-  padding: 32px 18px 20px;
+  padding: clamp(14px, 3dvh, 28px) 16px 12px;
   background: var(--surface);
   border-right: 1px solid var(--divider);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--divider) transparent;
 }
 .workspace-brand {
   padding-inline: 12px;
@@ -907,20 +910,13 @@ h3 {
   width: 36px;
   border-radius: 12px;
 }
-.workspace-edition {
-  display: block;
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  margin: 5px 0 0 46px;
-}
 .workspace-team {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 32px 0;
-  padding: 12px;
-  background: var(--canvas);
+  margin: clamp(12px, 3dvh, 24px) 0;
+  padding: 10px 12px;
+  background: linear-gradient(115deg, var(--surface-subtle), var(--surface));
   border: 1px solid var(--divider);
   border-radius: 14px;
 }
@@ -952,15 +948,15 @@ h3 {
   padding: 0 14px 10px;
 }
 .nav-secondary {
-  padding-top: 30px;
+  padding-top: 16px;
 }
 .workspace-link {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 48px;
-  padding: 10px 13px;
-  margin-block: 4px;
+  min-height: 44px;
+  padding: 7px 12px;
+  margin-block: 2px;
   border: 1px solid transparent;
   border-radius: 12px;
   color: var(--muted);
@@ -974,6 +970,7 @@ h3 {
   color: var(--primary);
   border-color: color-mix(in srgb, var(--primary) 20%, transparent);
   font-weight: 600;
+  box-shadow: inset 3px 0 var(--primary);
 }
 .nav-preview {
   margin-left: auto;
@@ -986,28 +983,29 @@ h3 {
 }
 .sidebar-bottom {
   margin-top: auto;
-  padding-top: 50px;
+  padding-top: 12px;
 }
-.sidebar-note {
-  display: flex;
-  gap: 10px;
-  color: var(--primary);
-  padding: 16px 12px;
-  border-top: 1px solid var(--divider);
+@media (max-height: 680px) {
+  .workspace-sidebar .workspace-team {
+    margin-block: 12px;
+  }
+  .workspace-sidebar .nav-section-label {
+    padding-bottom: 4px;
+  }
+  .workspace-sidebar .nav-secondary {
+    padding-top: 10px;
+  }
+  .workspace-sidebar .workspace-link {
+    margin-block: 0;
+  }
 }
-.sidebar-note svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.sidebar-note strong {
-  font-size: 11px;
-  font-weight: 600;
-}
-.sidebar-note p {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 4px;
-  line-height: 1.6;
+@media (max-height: 520px) {
+  .workspace-sidebar .workspace-team {
+    display: none;
+  }
+  .workspace-sidebar .workspace-brand {
+    margin-bottom: 14px;
+  }
 }
 .workspace-body {
   min-width: 0;
@@ -1124,7 +1122,6 @@ h3 {
 }
 .sidebar-collapsed .workspace-sidebar .nav-copy,
 .sidebar-collapsed .workspace-sidebar .nav-preview,
-.sidebar-collapsed .workspace-edition,
 .sidebar-collapsed .nav-section-label {
   display: none;
 }
@@ -1132,10 +1129,6 @@ h3 {
   padding: 12px;
 }
 .sidebar-collapsed .workspace-link {
-  justify-content: center;
-  padding-inline: 12px;
-}
-.sidebar-collapsed .sidebar-note {
   justify-content: center;
   padding-inline: 12px;
 }
@@ -1476,6 +1469,15 @@ body:has(.navigation-drawer[open]) {
   justify-content: space-between;
   gap: 20px;
 }
+.directory-title h1 {
+  font-size: clamp(25px, 3vw, 34px);
+  letter-spacing: -0.04em;
+}
+.directory-title p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 3px;
+}
 .title-with-icon {
   display: flex;
   gap: 12px;
@@ -1573,6 +1575,9 @@ body:has(.navigation-drawer[open]) {
 }
 .select-trigger[data-state='open'] {
   border-color: var(--primary);
+}
+.select-trigger[aria-invalid='true'] {
+  border-color: var(--danger);
 }
 .select-menu {
   z-index: 30;
@@ -1684,15 +1689,9 @@ body:has(.navigation-drawer[open]) {
   font-size: 14px;
 }
 .table-region {
-  overflow: auto;
-  min-height: 300px;
-  max-height: clamp(280px, calc(100svh - 640px), 622px);
   border: 1px solid var(--divider);
   border-radius: 16px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-  scrollbar-gutter: stable;
-  overscroll-behavior: contain;
+  scroll-margin-top: 100px;
 }
 .employee-table {
   border-collapse: separate;
@@ -1703,9 +1702,9 @@ body:has(.navigation-drawer[open]) {
 }
 .employee-table th {
   position: sticky;
-  top: 0;
+  top: 88px;
   z-index: 1;
-  padding: 15px 18px;
+  padding: 12px 16px;
   font-size: 12px;
   color: var(--muted);
   font-weight: 600;
@@ -1713,20 +1712,63 @@ body:has(.navigation-drawer[open]) {
   border-bottom: 1px solid var(--divider);
 }
 .employee-table th:first-child {
-  width: 31%;
+  border-start-start-radius: 15px;
+}
+.employee-table th:last-child {
+  border-start-end-radius: 15px;
+}
+.employee-table th:first-child {
+  width: 30%;
 }
 .employee-table th:nth-child(2) {
-  width: 27%;
+  width: 24%;
 }
 .employee-table th:nth-child(3) {
-  width: 17%;
+  width: 15%;
 }
 .employee-table td {
-  padding: 17px 18px;
+  padding: 10px 16px;
   font-size: 14px;
   border-bottom: 1px solid var(--divider);
   overflow-wrap: anywhere;
   vertical-align: middle;
+}
+.employee-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--surface-subtle) 24%, var(--surface));
+}
+.employee-table tbody tr:focus-within {
+  background: var(--surface-subtle);
+}
+.employee-table .employee-action-cell {
+  width: 96px;
+  text-align: right;
+  padding-inline: 8px;
+}
+.employee-country {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--surface-subtle);
+}
+.compensation-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  min-height: 44px;
+  color: var(--primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.employee-table .salary-cell small {
+  font-family: var(--font-sans);
+  font-size: 11px;
 }
 .employee-table tr:last-child td {
   border-bottom: 0;
@@ -1781,6 +1823,9 @@ body:has(.navigation-drawer[open]) {
   gap: 9px;
   align-items: center;
 }
+.directory-pagination {
+  padding-top: 12px;
+}
 .pagination .filter-field {
   display: flex;
   align-items: center;
@@ -1826,6 +1871,10 @@ body:has(.navigation-drawer[open]) {
   color: var(--foreground);
 }
 @media (hover: hover) and (pointer: fine) {
+  .compensation-action:hover {
+    background: var(--surface-subtle);
+    border-color: var(--divider);
+  }
   .employee-table tbody tr:hover {
     background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
   }
@@ -1972,8 +2021,9 @@ body:has(.navigation-drawer[open]) {
     white-space: nowrap;
   }
   .employee-table tr {
-    display: block;
-    padding: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 14px;
     border: 1px solid var(--divider);
     border-radius: 16px;
     margin-bottom: 12px;
@@ -1988,6 +2038,7 @@ body:has(.navigation-drawer[open]) {
     border: 0;
     text-align: right;
     font-size: 13px;
+    grid-column: 1 / -1;
   }
   .employee-table td::before {
     content: attr(data-label);
@@ -2003,6 +2054,25 @@ body:has(.navigation-drawer[open]) {
     padding: 0 0 12px;
     margin-bottom: 6px;
     border-bottom: 1px solid var(--divider);
+  }
+  .employee-table td.employee-action-cell {
+    grid-column: 2;
+    grid-row: 4;
+    width: auto;
+    padding: 0;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .employee-table td.salary-cell {
+    grid-column: 1;
+    grid-row: 4;
+    display: grid;
+    gap: 3px;
+    text-align: left;
+    padding-inline-end: 6px;
+  }
+  .employee-table td.employee-action-cell::before {
+    display: none;
   }
   .employee-table td.identity-cell::before {
     display: none;

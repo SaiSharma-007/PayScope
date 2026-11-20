@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 from collections.abc import Iterable
 from typing import Any
@@ -68,7 +69,9 @@ async def seed_hr_user(connection: AsyncConnection, password: str) -> UUID:
                 "id": uuid4(),
                 "email": DEMO_HR_EMAIL,
                 "display_name": "HR Manager",
-                "password_hash": await asyncio.to_thread(PasswordHasher().hash, password),
+                "password_hash": await asyncio.to_thread(
+                    PasswordHasher().hash, password
+                ),
             }
         ],
     )
@@ -83,18 +86,26 @@ async def seed_database(engine: AsyncEngine, password: str) -> None:
             connection,
             countries,
             countries.c.code,
-            [{"code": code, "name": location.country} for code, location in LOCATIONS.items()],
+            [
+                {"code": code, "name": location.country}
+                for code, location in LOCATIONS.items()
+            ],
         )
         currencies_changed = await insert_missing(
             connection,
             currencies,
             currencies.c.code,
-            [{"code": code, "name": name, "minor_units": 2} for code, name in CURRENCIES.items()],
+            [
+                {"code": code, "name": name, "minor_units": 2}
+                for code, name in CURRENCIES.items()
+            ],
         )
         department_ids, departments_changed = await seed_lookup(
             connection, departments, DEPARTMENTS
         )
-        titles = dict.fromkeys(title for roles in DEPARTMENTS.values() for title in roles)
+        titles = dict.fromkeys(
+            title for roles in DEPARTMENTS.values() for title in roles
+        )
         title_ids, titles_changed = await seed_lookup(connection, job_titles, titles)
 
         employees_changed = await insert_missing(
@@ -114,7 +125,9 @@ async def seed_database(engine: AsyncEngine, password: str) -> None:
         )
         result = await connection.execute(
             select(employees.c.employee_code, employees.c.id).where(
-                employees.c.employee_code.in_([employee.code for employee in demo_employees])
+                employees.c.employee_code.in_(
+                    [employee.code for employee in demo_employees]
+                )
             )
         )
         employee_ids = {code: employee_id for code, employee_id in result}
@@ -147,11 +160,39 @@ async def seed_database(engine: AsyncEngine, password: str) -> None:
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Seed fictional PayScope employees and compensation."
+    )
+    parser.add_argument(
+        "--compensation",
+        choices=["preview", "apply"],
+        help="Reframe missing demo packages, preserving each recorded total.",
+    )
+    arguments = parser.parse_args()
     settings = SeedSettings()
     engine = create_database_engine(settings)
     try:
         logger.info("seed.started employees=%d", EMPLOYEE_COUNT)
         await seed_database(engine, settings.demo_hr_password.get_secret_value())
+        if arguments.compensation:
+            from payscope.compensation.seed import seed_compensation
+
+            result = await seed_compensation(
+                engine, apply=arguments.compensation == "apply"
+            )
+            logger.info(
+                "seed.compensation eligible=%d created=%d",
+                result["eligible"],
+                result["created"],
+            )
+            for country, summary in result["countries"].items():
+                logger.info(
+                    "seed.compensation.country country=%s employees=%d original_total=%s package_total=%s",
+                    country,
+                    summary["employees"],
+                    summary["original_total"],
+                    summary["package_total"],
+                )
     finally:
         await engine.dispose()
     logger.info("seed.completed employees=%d", EMPLOYEE_COUNT)

@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Path
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from payscope.compensation.schemas import Money
 from payscope.salaries.schemas import SalaryResponse
 
 MAX_DATABASE_ID = 2**63 - 1
@@ -21,9 +22,19 @@ class EmployeeDimensions(BaseModel):
 
 
 class EmployeeFilters(EmployeeDimensions):
-    search: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] = ""
+    search: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] = (
+        ""
+    )
     page: int = Field(default=1, ge=1, le=2**31 - 1)
     page_size: int = Field(default=25, ge=1, le=100)
+
+
+class CompensationSummary(BaseModel):
+    version: int
+    annual_basic_pay: Money
+    currency_code: str
+    guaranteed_cost: Money
+    target_cost: Money
 
 
 class EmployeeResponse(BaseModel):
@@ -37,6 +48,7 @@ class EmployeeResponse(BaseModel):
     job_title_id: int
     job_title: str
     salary: SalaryResponse | None
+    compensation: CompensationSummary | None = None
 
 
 class EmployeePage(BaseModel):

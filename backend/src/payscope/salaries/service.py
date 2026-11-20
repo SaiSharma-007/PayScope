@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from payscope.database import advance_report_revision
 from payscope.employees.service import missing_employee
-from payscope.models import currencies, employee_salaries, employees
+from payscope.models import (
+    compensation_packages,
+    currencies,
+    employee_salaries,
+    employees,
+)
 from payscope.salaries.schemas import SalaryResponse, SalaryUpdate
 
 SALARY_COLUMNS = (
@@ -34,6 +39,19 @@ async def get_salary(database: AsyncSession, employee_id: int) -> SalaryResponse
 async def save_salary(
     database: AsyncSession, employee_id: int, salary: SalaryUpdate, user_id: UUID
 ) -> SalaryResponse:
+    await database.execute(
+        select(employees.c.id).where(employees.c.id == employee_id).with_for_update()
+    )
+    if await database.scalar(
+        select(exists().where(compensation_packages.c.employee_id == employee_id))
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PACKAGE_EXISTS",
+                "message": "This employee has a compensation package. Edit it through Compensation instead of replacing the legacy salary.",
+            },
+        )
     employee_exists, currency_exists = (
         await database.execute(
             select(
@@ -65,7 +83,9 @@ async def save_salary(
     statement = (
         insert(employee_salaries)
         .values(employee_id=employee_id, **values)
-        .on_conflict_do_update(index_elements=[employee_salaries.c.employee_id], set_=values)
+        .on_conflict_do_update(
+            index_elements=[employee_salaries.c.employee_id], set_=values
+        )
         .returning(*SALARY_COLUMNS)
     )
     result = await database.execute(statement)

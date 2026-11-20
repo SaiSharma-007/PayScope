@@ -8,7 +8,7 @@ import {
   LayoutDashboard,
   PanelLeft,
   Settings2,
-  ShieldCheck,
+  SlidersHorizontal,
   Users,
   X,
 } from 'lucide-react'
@@ -22,14 +22,13 @@ const pages = [
     path: '/overview',
     label: 'Overview',
     icon: LayoutDashboard,
-    preview: true,
   },
   { path: '/employees', label: 'Employees', icon: Users },
+  { path: '/rules', label: 'Compensation rules', icon: SlidersHorizontal },
   {
     path: '/insights',
     label: 'Salary insights',
     icon: ChartNoAxesCombined,
-    preview: true,
   },
   { path: '/activity', label: 'Activity', icon: Activity, preview: true },
 ]
@@ -39,7 +38,6 @@ function Navigation({ onNavigate }) {
     <>
       <div className="workspace-brand">
         <Brand />
-        <span className="workspace-edition">HR EDITION</span>
       </div>
       <div className="workspace-team">
         <span className="team-mark">P</span>
@@ -78,14 +76,13 @@ function Navigation({ onNavigate }) {
         </span>
       </nav>
       <div className="sidebar-bottom">
-        <div className="sidebar-note">
-          <ShieldCheck size={21} aria-hidden="true" />
-          <div className="nav-copy">
-            <strong>A private place for pay.</strong>
-            <p>Access is limited to your HR workspace.</p>
-          </div>
-        </div>
-        <Link to="/" onClick={onNavigate} className="workspace-link">
+        <Link
+          to="/"
+          onClick={onNavigate}
+          className="workspace-link"
+          aria-label="About PayScope"
+          title="About PayScope"
+        >
           <ArrowUpRight size={19} aria-hidden="true" />
           <span className="nav-copy">About PayScope</span>
         </Link>
@@ -113,7 +110,9 @@ export default function WorkspaceShell() {
     return () => media.removeEventListener('change', resize)
   }, [])
   const title =
-    pages.find((page) => page.path === pathname)?.label || 'Workspace'
+    pages.find(
+      (page) => page.path === pathname || pathname.startsWith(page.path + '/'),
+    )?.label || 'Workspace'
   function toggleNavigation(event) {
     if (mobile) {
       drawer.current.dataset.keyboard = String(event.detail === 0)

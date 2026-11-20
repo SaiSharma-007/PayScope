@@ -6,6 +6,18 @@ The React app gives an HR Manager a clear path from opening the demo to finding 
 
 ## Product behavior
 
+### Compensation extension (Plan 1)
+
+The Compensation rules page supports country/currency/status filters, custom component entry, an example annual-basic-pay calculator, immutable version inspection, new-version publication, and deactivation/reactivation. Country and currency are fixed for a rule; a different pairing requires a new rule. Example previews are labeled as unsaved and do not modify employees.
+
+Employees have a Compensation action on desktop and mobile. The drawer shows the saved package, annual basic pay, currency, effective date, a compatible rule selector or manual component editor, and overrides with required reasons. Changing currency explicitly clears the incompatible draft structure. The before/after preview identifies all included and excluded lines, guaranteed and target costs, and employee deductions. The UI saves only after a successful preview and invalidates that preview whenever inputs change. Saved changes update the employee row without resetting filters, pagination, or table scroll.
+
+Unsaved changes require confirmation on closing or navigating away, including browser back. The drawer restores focus to its employee action. Stale-save conflicts retain entered values and offer an explicit reload with discard confirmation. Loading, field errors, failed requests, retries, session expiry, and duplicate-save protection follow the existing authentication patterns. Dropdown portals remain inside a modal drawer so keyboard and pointer interaction work in both. Light/dark themes, narrow widths, reduced motion, and exact decimal/currency labels apply throughout.
+
+The reframed demo uses fictional country splits preserving each old total, with visibly named demo rules and components. Equity remains not configured; the UI shows cash/benefit cost rather than claiming a complete equity-inclusive CTC. Pay Analytics, Ask about pay, and manual equity remain scheduled work after Plan 1.
+
+### Original core and future workflow
+
 - **Landing page.** The public page introduces salary management and pay analytics, identifies the demo data as synthetic, and provides a prominent **Sign in** action. Employee and salary information is available only after sign-in.
 - **Access and navigation.** The HR Manager can sign in and sign out. A successful sign-in opens **Employees**, with **Pay Analytics** accessible from the main navigation. Sign-out and session expiry clear protected data from the interface and return to sign-in.
 - **Employee directory.** The table shows employee ID, name, country, department, job title, and current annual gross base salary with its currency. HR can search by name or ID, combine and clear filters, and browse paginated results with a visible result count. A search or filter change resets pagination to page one.

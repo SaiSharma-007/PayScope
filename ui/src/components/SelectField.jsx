@@ -1,5 +1,6 @@
 import * as SelectPrimitive from '@radix-ui/react-select'
-import { useState } from 'react'
+import { useContext, useState } from 'react'
+import { SelectPortalContext } from './SelectPortalContext'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 
 const ALL = '__all__'
@@ -12,8 +13,10 @@ export default function SelectField({
   options,
   placeholder,
   disabled,
+  error,
 }) {
   const [keyboard, setKeyboard] = useState(false)
+  const container = useContext(SelectPortalContext)
   return (
     <div className="filter-field">
       <label id={`${id}-label`} htmlFor={id}>
@@ -30,13 +33,15 @@ export default function SelectField({
           onKeyDown={() => setKeyboard(true)}
           onPointerDown={() => setKeyboard(false)}
           aria-labelledby={`${id}-label`}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
         >
           <SelectPrimitive.Value />
           <SelectPrimitive.Icon asChild>
             <ChevronDown size={16} aria-hidden="true" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
-        <SelectPrimitive.Portal>
+        <SelectPrimitive.Portal container={container}>
           <SelectPrimitive.Content
             className="select-menu"
             data-keyboard={keyboard || undefined}
@@ -72,6 +77,11 @@ export default function SelectField({
           </SelectPrimitive.Content>
         </SelectPrimitive.Portal>
       </SelectPrimitive.Root>
+      {error && (
+        <small id={`${id}-error`} className="error-message">
+          {error}
+        </small>
+      )}
     </div>
   )
 }

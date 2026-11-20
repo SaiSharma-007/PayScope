@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import {
-  BrowserRouter,
+  createBrowserRouter,
+  RouterProvider,
   Navigate,
   Outlet,
   Route,
@@ -16,6 +17,10 @@ import Header from './components/Header'
 import Feedback from './components/Feedback'
 import WorkspaceShell from './components/WorkspaceShell'
 import WorkspacePreview from './features/workspace/WorkspacePreview'
+import Overview from './features/workspace/Overview'
+import SalaryInsights from './features/workspace/SalaryInsights'
+import Rules from './features/compensation/Rules'
+import RuleEditor from './features/compensation/RuleEditor'
 
 function ProtectedRoute() {
   const auth = useAuth()
@@ -46,8 +51,9 @@ function Pages() {
       '/overview': 'Overview',
       '/insights': 'Salary insights',
       '/activity': 'Activity',
+      '/rules': 'Compensation rules',
     }
-    document.title = `${titles[pathname] || 'Page not found'} · PayScope`
+    document.title = `${titles[pathname] || (pathname.startsWith('/rules/') ? 'Compensation rule' : 'Page not found')} · PayScope`
     window.scrollTo(0, 0)
     if (previousPath.current !== pathname) {
       const heading = document.querySelector('main h1')
@@ -61,18 +67,22 @@ function Pages() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      {!['/employees', '/overview', '/insights', '/activity'].includes(
-        pathname,
-      ) && <Header />}
+      {!pathname.startsWith('/rules') &&
+        !['/employees', '/overview', '/insights', '/activity'].includes(
+          pathname,
+        ) && <Header />}
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<WorkspaceShell />}>
             <Route path="/employees" element={<Employees />} />
-            <Route path="/overview" element={<WorkspacePreview />} />
-            <Route path="/insights" element={<WorkspacePreview />} />
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/insights" element={<SalaryInsights />} />
             <Route path="/activity" element={<WorkspacePreview />} />
+            <Route path="/rules" element={<Rules />} />
+            <Route path="/rules/new" element={<RuleEditor key="new-rule" />} />
+            <Route path="/rules/:ruleId" element={<RuleEditor />} />
           </Route>
         </Route>
         <Route
@@ -92,12 +102,17 @@ function Pages() {
   )
 }
 
-export default function App() {
-  return (
-    <BrowserRouter>
+const router = createBrowserRouter([
+  {
+    path: '*',
+    element: (
       <AuthProvider>
         <Pages />
       </AuthProvider>
-    </BrowserRouter>
-  )
+    ),
+  },
+])
+
+export default function App() {
+  return <RouterProvider router={router} />
 }
