@@ -108,7 +108,7 @@ The reference guides spatial arrangement, depth, and control treatment. PayScope
 
 The public landing page can be expressive. Its signature is a fixed salary-range illustration over a slowly moving liquid wash. Use fictional examples and label them as demo data. Sign-in, Employees, Pay Analytics, and Ask about pay share the rounded surfaces, aligned controls, and soft lighting. English is the current UI language. Currency remains explicit and follows the record, regardless of display locale.
 
-This document owns the visual specification. The planned runtime mapping is to the repository's `ui/src/styles/tokens.css`, with a single semantic CSS variable per role and theme overrides on the root `data-theme` attribute. Use the unsuffixed names in components and resolve the `-dark` values in the dark override. Shared controls, tables, and overlays consume those variables. The existing frontend requirements govern workflow, validation, recovery, and streaming behavior. [Frontend requirements](../requirements/frontend-requirements.md)
+This document owns the visual specification. Runtime tokens live in the repository's `ui/src/styles/tokens.css`, with a single semantic CSS variable per role and theme overrides on the root `data-theme` attribute. Components use the unsuffixed names and resolve the `-dark` values in the dark override. Shared controls and surfaces consume those variables. Keep this specification and the runtime tokens aligned when changing the palette. The existing frontend requirements govern workflow, validation, recovery, and streaming behavior. [Frontend requirements](../requirements/frontend-requirements.md)
 
 ## Colors
 
@@ -191,16 +191,20 @@ Use 28 px outer panel corners, 20 px inset group corners, and 14 px field and bu
 | Component | Visual and interaction rules |
 | --- | --- |
 | Button | Primary uses a solid fill and a small soft shadow. Secondary uses a raised surface with a fine boundary. A hover on fine pointers changes the fill subtly. Pressed reduces scale to `0.98`. Busy preserves button width, shows a concise progress label, and guards the action. Disabled and read-only states retain readable labels and show the appropriate state. |
-| Filters and search | Put labeled fields inside a quiet inset group. Anchor rounded option panels to their triggers. Retain the layout during fetches, show a clear no-results message, and keep a retry action available after a failed request. |
+| Filters and search | Put labeled fields inside a quiet inset group. The shared `SelectField` uses Radix Select for country, department, job title, and page size, with visible labels, type-ahead, arrow keys, Escape, and focus restoration. Keep previous rows visible during refresh with an explicit status. Show a clear no-results message and retain rows with Retry after a failed refresh. |
 | Salary drawer | Open from the right at 432 px on desktop with rounded leading corners and a soft shadow. Use a full-width sheet on narrow screens. Keep the surface opaque, with a visible title, sticky actions, inline validation, and focus restoration to Edit salary. Keep the entered amount visible during errors and show success after the save is confirmed. |
 | Charts and tables | Keep scales and labels stable during refreshes. Use a horizontal band from minimum to maximum, a diamond for the median, and the exact-values table for keyboard and touch access. Preserve currency separation and use a visible label for missing pay. |
 | Ask about pay | Use a rounded outer panel and a small gradient emblem. Make useful example questions individually pressable in softly raised rows. Keep tool activity and answer text readable during a stream. Announce meaningful status changes in batches and keep already received content visible on interruption. |
 
 ### Theme switch
 
+The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview, salary insights, and activity are visibly marked previews with illustrative content. Employees remains the live directory. Settings is labeled Soon and unavailable.
+
 Resolve the saved preference before first paint and follow the device theme when no choice is saved. Apply `data-theme` and `color-scheme` together. Keep the switch labeled **Dark theme**, expose its checked state, and persist changes.
 
-Switch text, controls, and chart tokens in one frame. On pointer activation, move the thumb with `transform` over 160 ms and fade the outgoing decorative wash over 220 ms where a wash is present. Keep that fade behind the opaque UI. Rapid toggles reverse the thumb from its current position and replace the outgoing wash instead of adding more layers. Make keyboard and reduced-motion switches immediate.
+Crossfade the outgoing page snapshot over 240 ms using the browser View Transition API, applying all theme tokens together underneath. Fade opacity with no page movement. If another toggle arrives, finish the outgoing transition and apply the latest choice immediately. Browsers without this API transition surface, text, border, and shadow colors over 220 ms. Keyboard and reduced-motion switches apply immediately. Preserve the pre-paint preference so reloads start in the chosen theme.
+
+The directory uses a bounded scroll region with sticky column headers on desktop and labeled employee cards below 700 px. Keep salaries aligned with their currency code. Page size offers 10, 25, or 50 rows and resets pagination when changed. Loading placeholders reserve the initial row geometry, while refreshes retain previous results and their page range until the response arrives.
 
 ### Motion
 

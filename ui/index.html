@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="A clearer workspace for employee salaries. Explore PayScope’s fictional 10,000-employee demo."
+    />
+    <meta property="og:title" content="PayScope · Employee salary management" />
+    <meta
+      property="og:description"
+      content="A clearer workspace for employee salaries, country and department comparisons, and current pay records."
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta
+      name="theme-color"
+      content="#F4F0FA"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#181326"
+      media="(prefers-color-scheme: dark)"
+    />
+    <title>Employee salary management · PayScope</title>
+    <script>
+      try {
+        const saved = localStorage.getItem('payscope.theme')
+        document.documentElement.dataset.theme =
+          saved === 'dark' || saved === 'light'
+            ? saved
+            : matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+      } catch {
+        document.documentElement.dataset.theme = matchMedia(
+          '(prefers-color-scheme: dark)',
+        ).matches
+          ? 'dark'
+          : 'light'
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
