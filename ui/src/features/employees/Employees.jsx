@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Search, X } from 'lucide-react'
 import { request } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import SelectField from '../../components/SelectField'
+import Skeleton from '../../components/Skeleton'
 import EmployeeTable from './EmployeeTable'
 const CompensationDrawer = lazy(
   () => import('../compensation/CompensationDrawer'),
@@ -81,7 +82,8 @@ export default function Employees() {
   }
 
   const loading = data?.key !== requestKey && data?.errorKey !== requestKey
-  const result = data?.result
+  const result = data?.key === requestKey ? data.result : null
+  const previousResult = data?.result
   const error = data?.errorKey === requestKey ? data.error : null
   const hasFilters = [
     'search',
@@ -106,9 +108,13 @@ export default function Employees() {
           <div className="directory-title">
             <h1 id="directory-title">Employees</h1>
             <p>
-              {result
-                ? `${result.total.toLocaleString()} matching ${result.total === 1 ? 'employee' : 'employees'}`
-                : 'Finding your people…'}
+              {loading ? (
+                <Skeleton width="9rem" />
+              ) : result ? (
+                `${result.total.toLocaleString()} matching ${result.total === 1 ? 'employee' : 'employees'}`
+              ) : (
+                'Employee count unavailable'
+              )}
             </p>
           </div>
           <span className="demo-label">Fictional demo data</span>
@@ -193,8 +199,8 @@ export default function Employees() {
         <div className="directory-status">
           <p role="status" aria-live="polite">
             {loading
-              ? result
-                ? 'Updating results… Previous results shown.'
+              ? previousResult
+                ? 'Updating employee results…'
                 : 'Loading employees…'
               : error
                 ? 'Results could not be updated.'
@@ -223,19 +229,14 @@ export default function Employees() {
           tabIndex={-1}
           aria-busy={loading}
         >
-          {!result && error ? (
+          {error ? (
             <div className="table-feedback">Employee results unavailable.</div>
-          ) : !result ? (
-            <div className="table-skeleton" aria-hidden="true">
-              {Array.from({ length: 8 }, (_, index) => (
-                <div className="skeleton-row" key={index}>
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              ))}
-            </div>
+          ) : loading ? (
+            <EmployeeTable
+              skeletonRows={
+                previousResult?.items.length || Math.min(pageSize, 10)
+              }
+            />
           ) : result.items.length === 0 ? (
             <div className="table-feedback">
               <Search size={28} aria-hidden="true" />
@@ -264,23 +265,27 @@ export default function Employees() {
             />
           )}
         </div>
-        {result?.total > 0 && (
+        {(loading ? previousResult?.total : result?.total) > 0 && (
           <nav
             className="pagination directory-pagination"
             aria-label="Employee pages"
           >
             <span>
-              {result.items.length
-                ? `${((result.page - 1) * result.page_size + 1).toLocaleString()}–${Math.min(result.page * result.page_size, result.total).toLocaleString()} of ${result.total.toLocaleString()}`
-                : result.total
-                  ? `0 shown of ${result.total.toLocaleString()}`
-                  : '0 employees'}
+              {loading ? (
+                <Skeleton width="7rem" />
+              ) : result.items.length ? (
+                `${((result.page - 1) * result.page_size + 1).toLocaleString()}–${Math.min(result.page * result.page_size, result.total).toLocaleString()} of ${result.total.toLocaleString()}`
+              ) : result.total ? (
+                `0 shown of ${result.total.toLocaleString()}`
+              ) : (
+                '0 employees'
+              )}
             </span>
             <div>
               <SelectField
                 id="page_size"
                 label="Rows per page"
-                value={String(pageSize)}
+                value={String((loading ? previousResult : result).page_size)}
                 onChange={(value) => filter('page_size', value)}
                 options={[10, 25, 50].map((size) => ({
                   value: String(size),

@@ -1,43 +1,33 @@
-import { useEffect, useState } from 'react'
+import { useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Plus, SlidersHorizontal } from 'lucide-react'
 import SelectField from '../../components/SelectField'
+import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from './Fields'
-import { useCompensationApi, useReferenceData } from './shared'
+import { useReferenceData } from './shared'
+import { useWorkspaceReport } from '../workspace/useWorkspaceReport'
 
 export default function Rules() {
-  const api = useCompensationApi()
   const reference = useReferenceData()
   const [params, setParams] = useSearchParams()
-  const [data, setData] = useState(null)
-  const [error, setError] = useState(null)
-  const [retry, setRetry] = useState(0)
+  const results = useRef(null)
   const query = new URLSearchParams()
   for (const name of ['country_code', 'currency_code', 'active', 'page'])
     if (params.get(name)) query.set(name, params.get(name))
-  const key = query.toString()
-  useEffect(() => {
-    const controller = new AbortController()
-    api(`/compensation/rules?${key}`, { signal: controller.signal })
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setData({ key, ...result })
-          setError(null)
-        }
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) setError(error)
-      })
-    return () => controller.abort()
-  }, [api, key, retry])
-  const loading = !error && data?.key !== key
+  const { data, loading, error, retry } = useWorkspaceReport(
+    `/compensation/rules?${query}`,
+  )
   function filter(name, value) {
     const next = new URLSearchParams(params)
     if (value) next.set(name, value)
     else next.delete(name)
     next.delete('page')
     setParams(next)
-    setError(null)
+  }
+  function changePage(page) {
+    results.current?.focus({ preventScroll: true })
+    results.current?.scrollIntoView({ block: 'start' })
+    setParams({ ...Object.fromEntries(params), page })
   }
   return (
     <main id="main" className="page rules-page">
@@ -111,28 +101,38 @@ export default function Rules() {
         )}
         <ErrorSummary error={error} />
         {error && (
-          <button
-            className="button secondary"
-            onClick={() => {
-              setError(null)
-              setRetry((value) => value + 1)
-            }}
-          >
+          <button className="button secondary" onClick={retry}>
             Try again
           </button>
         )}
         <p className="comp-status" role="status">
           {loading
             ? 'Loading rules…'
-            : data
+            : !error && data
               ? `${data.total} ${data.total === 1 ? 'rule' : 'rules'}`
               : ''}
         </p>
-        <div className="rule-list" aria-busy={loading}>
-          {!data && loading ? (
-            <div className="comp-empty">
-              Loading your compensation structures…
-            </div>
+        <div
+          className="rule-list"
+          role="region"
+          aria-label="Rule results"
+          ref={results}
+          tabIndex={-1}
+          aria-busy={loading}
+        >
+          {loading ? (
+            Array.from({ length: data?.items.length || 4 }, (_, index) => (
+              <div className="rule-list-row" key={index} aria-hidden="true">
+                <Skeleton width="42px" height="42px" />
+                <span className="rule-list-name">
+                  <Skeleton width="min(70%, 13rem)" />
+                  <Skeleton width="5rem" height="0.6rem" />
+                </span>
+                <Skeleton width="3rem" height="1rem" />
+              </div>
+            ))
+          ) : error ? (
+            <div className="comp-empty">Rule results unavailable.</div>
           ) : data?.items.length === 0 ? (
             <div className="comp-empty">
               <h3>No rules match.</h3>
@@ -162,31 +162,23 @@ export default function Rules() {
             ))
           )}
         </div>
-        {data && data.total > 50 && (
+        {data && !error && data.total > 50 && (
           <div className="pagination">
-            <span>Page {data.page}</span>
+            <span>
+              {loading ? <Skeleton width="3rem" /> : `Page ${data.page}`}
+            </span>
             <div>
               <button
                 className="button secondary compact"
                 disabled={loading || data.page <= 1}
-                onClick={() =>
-                  setParams({
-                    ...Object.fromEntries(params),
-                    page: data.page - 1,
-                  })
-                }
+                onClick={() => changePage(data.page - 1)}
               >
                 Previous
               </button>
               <button
                 className="button secondary compact"
                 disabled={loading || data.page * 50 >= data.total}
-                onClick={() =>
-                  setParams({
-                    ...Object.fromEntries(params),
-                    page: data.page + 1,
-                  })
-                }
+                onClick={() => changePage(data.page + 1)}
               >
                 Next
               </button>

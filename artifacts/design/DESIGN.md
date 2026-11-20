@@ -216,7 +216,7 @@ Resolve the saved preference before first paint and follow the device theme when
 
 Crossfade the outgoing page snapshot over 240 ms using the browser View Transition API, applying all theme tokens together underneath. Fade opacity with no page movement. If another toggle arrives, finish the outgoing transition and apply the latest choice immediately. Browsers without this API transition surface, text, border, and shadow colors over 220 ms. Keyboard and reduced-motion switches apply immediately. Preserve the pre-paint preference so reloads start in the chosen theme.
 
-The directory scrolls with the page and keeps column headers visible beneath the workspace bar on desktop. Below 700 px, labeled employee cards place the compensation amount beside its View action. Page size defaults to 10, with 25 and 50 as options. Changing pages returns focus to the results. Refreshes retain previous results and their page range until the response arrives.
+The directory scrolls with the page and keeps column headers visible beneath the workspace bar on desktop. Below 700 px, labeled employee cards place the compensation amount beside its View action. Page size defaults to 10, with 25 and 50 as options. Changing pages returns focus to the results. Initial loads, pagination, filters, and retries show skeletons in the shape of the results. Rows, counts, and pagination metadata appear together from the same response. Keep a screen-reader loading status outside busy results and keep skeletons static under reduced motion.
 
 ### Motion
 

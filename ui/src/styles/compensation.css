@@ -29,6 +29,7 @@
 }
 .rule-list {
   min-height: 180px;
+  scroll-margin-top: 100px;
 }
 .rule-list-row {
   display: flex;

@@ -1839,22 +1839,29 @@ body:has(.navigation-drawer[open]) {
   width: 74px;
   height: 44px;
 }
-.table-skeleton {
-  padding: 16px;
-}
-.skeleton-row {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 0.8fr 0.8fr;
-  gap: 30px;
-  height: 72px;
-  align-items: center;
-  border-bottom: 1px solid var(--divider);
-}
-.skeleton-row span {
-  display: block;
-  height: 14px;
+.skeleton {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
   border-radius: 5px;
-  background: var(--surface-subtle);
+  background: color-mix(in srgb, var(--surface-subtle) 75%, var(--divider));
+  animation: skeleton-pulse 1.5s ease-in-out 160ms infinite alternate;
+}
+.skeleton-stack {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+.employee-table .salary-cell .skeleton-stack {
+  justify-items: end;
+}
+.employee-table .employee-identity > .skeleton {
+  flex-shrink: 0;
+}
+@keyframes skeleton-pulse {
+  to {
+    opacity: 0.55;
+  }
 }
 .table-feedback {
   min-height: 300px;
@@ -2039,6 +2046,9 @@ body:has(.navigation-drawer[open]) {
     text-align: right;
     font-size: 13px;
     grid-column: 1 / -1;
+  }
+  .employee-table .salary-cell .skeleton-stack {
+    justify-items: start;
   }
   .employee-table td::before {
     content: attr(data-label);

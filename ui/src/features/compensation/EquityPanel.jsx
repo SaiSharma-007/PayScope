@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Gem, Plus, Trash2 } from 'lucide-react'
 import SelectField from '../../components/SelectField'
+import Skeleton from '../../components/Skeleton'
 import { useWorkspaceReport } from '../workspace/useWorkspaceReport'
 import { DiscardDialog } from './DiscardDialog'
 import { ErrorSummary, FormField } from './Fields'
@@ -145,12 +146,13 @@ export default function EquityPanel({
     setDiscard(false)
     setError(null)
     setEditor(null)
-    requestAnimationFrame(() =>
-      (trigger.current?.isConnected
-        ? trigger.current
-        : addButton.current
-      )?.focus({ preventScroll: true }),
-    )
+    requestAnimationFrame(() => {
+      const target =
+        [trigger.current, addButton.current].find(
+          (button) => button?.isConnected && !button.disabled,
+        ) ?? root.current?.querySelector('#equity-heading')
+      target?.focus({ preventScroll: true })
+    })
   }
 
   async function mutate(operation, success) {
@@ -237,7 +239,7 @@ export default function EquityPanel({
           {message}
         </p>
       )}
-      {data && (
+      {(report.loading || (!report.error && data)) && (
         <>
           <FormField
             id="equity-year"
@@ -262,28 +264,33 @@ export default function EquityPanel({
           />
           <dl
             className="equity-totals"
-            aria-label={`Compensation totals for ${data.year}`}
+            aria-label={`Compensation totals for ${year}`}
+            aria-busy={report.loading}
           >
             {[
-              ['Saved cash and benefits', data.guaranteed_cost],
-              ['Annual equity cost', data.equity_cost],
-              ['Guaranteed CTC', data.ctc],
-              ['CTC with targets', data.target_ctc],
+              ['Saved cash and benefits', data?.guaranteed_cost],
+              ['Annual equity cost', data?.equity_cost],
+              ['Guaranteed CTC', data?.ctc],
+              ['CTC with targets', data?.target_ctc],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt>{label}</dt>
                 <dd>
-                  {value == null
-                    ? 'Incomplete'
-                    : money(value, data.currency_code)}
+                  {report.loading ? (
+                    <Skeleton width="7rem" />
+                  ) : value == null ? (
+                    'Incomplete'
+                  ) : (
+                    money(value, data.currency_code)
+                  )}
                 </dd>
               </div>
             ))}
           </dl>
-          {data.status === 'not_applicable' && (
+          {!report.loading && data.status === 'not_applicable' && (
             <p className="comp-muted">Equity marked not applicable.</p>
           )}
-          {data.status === 'incomplete' && (
+          {!report.loading && data.status === 'incomplete' && (
             <p className="comp-muted">
               {data.awards.length
                 ? 'Check that every applicable award has an allocation in the package currency for this year.'
@@ -293,88 +300,111 @@ export default function EquityPanel({
           {!editor && (
             <>
               <ErrorSummary error={error} />
-              {data.awards.map((award) => (
-                <div className="equity-award" key={award.id}>
-                  <div>
-                    <strong>
-                      {title(award.kind)} · {award.units} units
-                    </strong>
-                    <small>
-                      Granted {award.grant_date} ·{' '}
-                      {award.valuation == null
-                        ? 'Unvalued'
-                        : `${money(award.valuation, award.grant_currency)} as of ${award.valuation_date}`}
-                    </small>
-                    <small>
-                      {award.unscheduled_units} units without a vesting date ·{' '}
-                      {award.allocations.length} recorded years
-                    </small>
-                    <details>
-                      <summary>Vesting and allocations</summary>
-                      {award.exercise_price != null && (
+              {report.loading
+                ? Array.from(
+                    { length: data?.awards.length || 2 },
+                    (_, index) => (
+                      <div
+                        className="equity-award"
+                        key={index}
+                        aria-hidden="true"
+                      >
+                        <span className="skeleton-stack">
+                          <Skeleton width="11rem" />
+                          <Skeleton width="8rem" height="0.6rem" />
+                        </span>
+                        <Skeleton width="4rem" height="1.5rem" />
+                      </div>
+                    ),
+                  )
+                : data.awards.map((award) => (
+                    <div className="equity-award" key={award.id}>
+                      <div>
+                        <strong>
+                          {title(award.kind)} · {award.units} units
+                        </strong>
                         <small>
-                          Exercise price per unit: {award.grant_currency}{' '}
-                          {award.exercise_price}
+                          Granted {award.grant_date} ·{' '}
+                          {award.valuation == null
+                            ? 'Unvalued'
+                            : `${money(award.valuation, award.grant_currency)} as of ${award.valuation_date}`}
                         </small>
-                      )}
-                      {award.vesting.map((row) => (
-                        <small key={row.date}>
-                          {row.date} · {row.units} units
-                        </small>
-                      ))}
-                      {award.allocations.map((row) => (
-                        <small key={row.year}>
-                          {row.year} allocation ·{' '}
-                          {money(row.amount, row.currency_code)}
-                        </small>
-                      ))}
-                      {award.last_year && (
-                        <small>Final allocation year: {award.last_year}</small>
-                      )}
-                      {!award.vesting.length && !award.allocations.length && (
                         <small>
-                          No vesting dates or annual allocations recorded.
+                          {award.unscheduled_units} units without a vesting date
+                          · {award.allocations.length} recorded years
                         </small>
-                      )}
-                    </details>
-                  </div>
+                        <details>
+                          <summary>Vesting and allocations</summary>
+                          {award.exercise_price != null && (
+                            <small>
+                              Exercise price per unit: {award.grant_currency}{' '}
+                              {award.exercise_price}
+                            </small>
+                          )}
+                          {award.vesting.map((row) => (
+                            <small key={row.date}>
+                              {row.date} · {row.units} units
+                            </small>
+                          ))}
+                          {award.allocations.map((row) => (
+                            <small key={row.year}>
+                              {row.year} allocation ·{' '}
+                              {money(row.amount, row.currency_code)}
+                            </small>
+                          ))}
+                          {award.last_year && (
+                            <small>
+                              Final allocation year: {award.last_year}
+                            </small>
+                          )}
+                          {!award.vesting.length &&
+                            !award.allocations.length && (
+                              <small>
+                                No vesting dates or annual allocations recorded.
+                              </small>
+                            )}
+                        </details>
+                      </div>
+                      <button
+                        type="button"
+                        className="button secondary compact"
+                        disabled={busy || report.loading}
+                        onClick={(event) => start(event, award)}
+                      >
+                        Edit award
+                      </button>
+                    </div>
+                  ))}
+              {data && (
+                <div className="comp-actions">
                   <button
-                    type="button"
-                    className="button secondary compact"
-                    disabled={busy || report.loading}
-                    onClick={(event) => start(event, award)}
-                  >
-                    Edit award
-                  </button>
-                </div>
-              ))}
-              <div className="comp-actions">
-                <button
-                  ref={addButton}
-                  type="button"
-                  className="button secondary"
-                  disabled={busy || report.loading}
-                  onClick={(event) => start(event)}
-                >
-                  <Plus size={16} aria-hidden="true" />
-                  Add equity award
-                </button>
-                {!data.awards.length && data.status !== 'not_applicable' && (
-                  <button
+                    ref={addButton}
                     type="button"
                     className="button secondary"
                     disabled={busy || report.loading}
-                    onClick={() =>
-                      mutate(
-                        () => api(`${path}/not-applicable`, { method: 'PUT' }),
-                        'Equity marked not applicable.',
-                      )
-                    }
+                    onClick={(event) => start(event)}
                   >
-                    Mark not applicable
+                    <Plus size={16} aria-hidden="true" />
+                    Add equity award
                   </button>
-                )}
-              </div>
+                  {!data.awards.length && data.status !== 'not_applicable' && (
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={busy || report.loading}
+                      onClick={() =>
+                        mutate(
+                          () =>
+                            api(`${path}/not-applicable`, { method: 'PUT' }),
+                          'Equity marked not applicable.',
+                        )
+                      }
+                    >
+                      Mark not applicable
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
           {editor && (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import SelectField from '../../components/SelectField'
+import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from '../compensation/Fields'
 import { money, useReferenceData } from '../compensation/shared'
 import { useWorkspaceReport } from './useWorkspaceReport'
@@ -81,7 +82,7 @@ function Ranges({ rows, currency }) {
   )
 }
 
-function ReportTable({ rows, currency }) {
+function ReportTable({ rows, currency, skeletonRows = 0 }) {
   const columns = [
     ['minimum', 'Minimum'],
     ['median', 'Median'],
@@ -91,7 +92,7 @@ function ReportTable({ rows, currency }) {
   return (
     <table className="report-table" role="table">
       <caption className="sr-only">
-        Exact compensation figures in {currency}
+        {currency ? `Exact compensation figures in ${currency}` : 'Exact compensation figures'}
       </caption>
       <thead role="rowgroup">
         <tr role="row">
@@ -104,25 +105,66 @@ function ReportTable({ rows, currency }) {
           <th scope="col">Eligible / in group</th>
         </tr>
       </thead>
-      <tbody role="rowgroup">
-        {rows.map((row) => (
-          <tr key={row.group_id} role="row">
-            <th scope="row" role="rowheader">
-              {nameOf(row)}
-            </th>
-            {columns.map(([key, label]) => (
-              <td role="cell" data-label={label} key={key}>
-                {row[key] == null ? '—' : money(row[key], currency)}
-              </td>
+      <tbody role="rowgroup" aria-hidden={skeletonRows ? true : undefined}>
+        {skeletonRows
+          ? Array.from({ length: skeletonRows }, (_, index) => (
+              <tr key={index}>
+                <th scope="row">
+                  <Skeleton width="5rem" />
+                </th>
+                {columns.map(([key, label]) => (
+                  <td key={key} data-label={label}>
+                    <Skeleton width="5rem" />
+                  </td>
+                ))}
+                <td data-label="Eligible / in group">
+                  <Skeleton width="3rem" />
+                </td>
+              </tr>
+            ))
+          : rows.map((row) => (
+              <tr key={row.group_id} role="row">
+                <th scope="row" role="rowheader">
+                  {nameOf(row)}
+                </th>
+                {columns.map(([key, label]) => (
+                  <td role="cell" data-label={label} key={key}>
+                    {row[key] == null ? '—' : money(row[key], currency)}
+                  </td>
+                ))}
+                <td role="cell" data-label="Eligible / in group">
+                  {number.format(row.headcount)} /{' '}
+                  {number.format(row.population)}
+                </td>
+              </tr>
             ))}
-            <td role="cell" data-label="Eligible / in group">
-              {number.format(row.headcount)} / {number.format(row.population)}
-            </td>
-          </tr>
-        ))}
       </tbody>
     </table>
   )
+}
+
+function ReportSkeleton({ previous }) {
+  const panels = previous?.length ? previous : [{ rows: [] }]
+  return panels.map(({ rows }, index) => (
+    <section className="panel report-landscape" key={index}>
+      <div className="comp-section-heading">
+        <span className="skeleton-stack">
+          <Skeleton width="14rem" height="1rem" />
+          <Skeleton width="10rem" />
+        </span>
+      </div>
+      <div className="report-ranges" aria-hidden="true">
+        {Array.from({ length: Math.min(rows.length || 3, 4) }, (_, row) => (
+          <div key={row} className="report-range-button">
+            <Skeleton width="4rem" />
+            <Skeleton height="7px" />
+            <Skeleton width="5rem" />
+          </div>
+        ))}
+      </div>
+      <ReportTable skeletonRows={Math.min(rows.length || 4, 8)} />
+    </section>
+  ))
 }
 
 function Composition({ rows, withEquity }) {
@@ -321,7 +363,7 @@ export default function SalaryInsights() {
       <p className="comp-status" role="status">
         {loading
           ? data
-            ? 'Updating report… Previous results shown.'
+            ? 'Updating compensation report…'
             : 'Loading compensation report…'
           : error
             ? 'Report could not be updated.'
@@ -335,52 +377,72 @@ export default function SalaryInsights() {
           Retry report
         </button>
       )}
-      {data && (
-        <div className="report-results" aria-busy={loading}>
-          {data.currencies.length === 0 && (
-            <section className="panel report-landscape">
-              <h2>No compensation matches</h2>
-              <p className="comp-muted">
-                Try a different country, currency, or reporting year.
-              </p>
-            </section>
-          )}
-          {data.currencies.map(({ currency_code, rows }) => (
-            <section
-              key={`${data.metric}:${data.year}:${currency_code}`}
-              className="panel report-landscape"
-              aria-label={`${currency_code} compensation report`}
-            >
-              <div className="comp-section-heading">
-                <div>
-                  <h2>
-                    {currency_code} ·{' '}
-                    {metrics.find((item) => item.value === data.metric)?.label}
-                  </h2>
-                  <p>{data.year} · Current packages effective by year end</p>
-                </div>
-              </div>
-              <Ranges rows={rows} currency={currency_code} />
-              <ReportTable rows={rows} currency={currency_code} />
-            </section>
-          ))}
-          {!!data.composition.length && (
-            <section className="panel report-landscape">
-              <div className="comp-section-heading">
-                <div>
-                  <h2>Cost composition by country</h2>
-                  <p>
-                    {withEquity
-                      ? 'Share of guaranteed CTC for employees with complete costs for the selected year.'
-                      : 'Share of guaranteed cash and benefit costs for employees with a saved package for this report.'}
+      <div
+        className="report-results"
+        role="region"
+        aria-label="Compensation report results"
+        aria-busy={loading}
+      >
+        {loading ? (
+          <ReportSkeleton previous={data?.currencies} />
+        ) : (
+          !error &&
+          data && (
+            <>
+              {data.currencies.length === 0 && (
+                <section className="panel report-landscape">
+                  <h2>No compensation matches</h2>
+                  <p className="comp-muted">
+                    Try a different country, currency, or reporting year.
                   </p>
-                </div>
-              </div>
-              <Composition rows={data.composition} withEquity={withEquity} />
-            </section>
-          )}
-        </div>
-      )}
+                </section>
+              )}
+              {data.currencies.map(({ currency_code, rows }) => (
+                <section
+                  key={`${data.metric}:${data.year}:${currency_code}`}
+                  className="panel report-landscape"
+                  aria-label={`${currency_code} compensation report`}
+                >
+                  <div className="comp-section-heading">
+                    <div>
+                      <h2>
+                        {currency_code} ·{' '}
+                        {
+                          metrics.find((item) => item.value === data.metric)
+                            ?.label
+                        }
+                      </h2>
+                      <p>
+                        {data.year} · Current packages effective by year end
+                      </p>
+                    </div>
+                  </div>
+                  <Ranges rows={rows} currency={currency_code} />
+                  <ReportTable rows={rows} currency={currency_code} />
+                </section>
+              ))}
+              {!!data.composition.length && (
+                <section className="panel report-landscape">
+                  <div className="comp-section-heading">
+                    <div>
+                      <h2>Cost composition by country</h2>
+                      <p>
+                        {withEquity
+                          ? 'Share of guaranteed CTC for employees with complete costs for the selected year.'
+                          : 'Share of guaranteed cash and benefit costs for employees with a saved package for this report.'}
+                      </p>
+                    </div>
+                  </div>
+                  <Composition
+                    rows={data.composition}
+                    withEquity={withEquity}
+                  />
+                </section>
+              )}
+            </>
+          )
+        )}
+      </div>
     </main>
   )
 }

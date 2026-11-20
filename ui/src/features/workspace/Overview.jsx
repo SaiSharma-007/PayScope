@@ -1,5 +1,6 @@
 import { ArrowRight, Globe2, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from '../compensation/Fields'
 import { useWorkspaceReport } from './useWorkspaceReport'
 
@@ -9,10 +10,10 @@ export default function Overview() {
   const { data, loading, error, retry } = useWorkspaceReport(
     '/analytics/workforce-overview',
   )
-  const metrics = data && [
-    ['Employees', data.employees, Users],
-    ['Countries', data.countries.length, Globe2],
-    ['Saved compensation packages', data.packages, Wallet],
+  const metrics = [
+    ['Employees', data?.employees, Users],
+    ['Countries', data?.countries.length, Globe2],
+    ['Saved compensation packages', data?.packages, Wallet],
   ]
   return (
     <main id="main" className="page workspace-preview-page">
@@ -29,12 +30,12 @@ export default function Overview() {
         </button>
       )}
       {loading && (
-        <p className="comp-status" role="status">
+        <p className="sr-only" role="status">
           Loading workforce overview…
         </p>
       )}
-      {data && (
-        <>
+      {(loading || (!error && data)) && (
+        <div aria-busy={loading}>
           <div className="workspace-metrics">
             {metrics.map(([label, value, Icon]) => (
               <section className="panel workspace-metric" key={label}>
@@ -42,7 +43,13 @@ export default function Overview() {
                   <h2>{label}</h2>
                   <Icon size={19} aria-hidden="true" />
                 </div>
-                <strong>{number.format(value)}</strong>
+                <strong>
+                  {loading ? (
+                    <Skeleton width="3.5rem" height="1.5rem" />
+                  ) : (
+                    number.format(value)
+                  )}
+                </strong>
               </section>
             ))}
           </div>
@@ -56,23 +63,33 @@ export default function Overview() {
                 <p>Saved packages as a share of employees in each country.</p>
               </div>
             </div>
-            {data.countries.length === 0 && <p>No employees are available.</p>}
-            {data.countries.map((country) => (
-              <Link
-                className="coverage-row"
-                to={`/insights?country_code=${country.country_code}`}
-                key={country.country_code}
-              >
-                <strong>{country.country_name}</strong>
-                <span>
-                  {number.format(country.packages)} /{' '}
-                  {number.format(country.employees)} employees
-                </span>
-                <ArrowRight size={17} aria-hidden="true" />
-              </Link>
-            ))}
+            {!loading && data.countries.length === 0 && (
+              <p>No employees are available.</p>
+            )}
+            {loading
+              ? Array.from({ length: 5 }, (_, index) => (
+                  <div className="coverage-row" aria-hidden="true" key={index}>
+                    <Skeleton width="7rem" />
+                    <Skeleton width="8rem" />
+                    <Skeleton width="1rem" />
+                  </div>
+                ))
+              : data.countries.map((country) => (
+                  <Link
+                    className="coverage-row"
+                    to={`/insights?country_code=${country.country_code}`}
+                    key={country.country_code}
+                  >
+                    <strong>{country.country_name}</strong>
+                    <span>
+                      {number.format(country.packages)} /{' '}
+                      {number.format(country.employees)} employees
+                    </span>
+                    <ArrowRight size={17} aria-hidden="true" />
+                  </Link>
+                ))}
           </section>
-        </>
+        </div>
       )}
     </main>
   )
