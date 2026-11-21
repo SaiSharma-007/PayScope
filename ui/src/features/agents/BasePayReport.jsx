@@ -21,6 +21,7 @@ const filters = [
 
 export default function BasePayReport() {
   const [params] = useSearchParams()
+  const headcount = params.get('report_type') === 'workforce_headcount'
   const query = new URLSearchParams(
     filters.flatMap((key) => (params.has(key) ? [[key, params.get(key)]] : [])),
   ).toString()
@@ -29,18 +30,18 @@ export default function BasePayReport() {
   const { expire } = useAuth()
   useEffect(() => {
     const controller = new AbortController()
-    request(`/analytics/salary-summary?${query}`, { signal: controller.signal })
-      .then((data) => setResult({ query, attempt, data }))
+    request(`/analytics/${headcount ? 'headcount' : 'salary-summary'}?${query}`, { signal: controller.signal })
+      .then((data) => setResult({ query, headcount, attempt, data }))
       .catch((error) => {
         if (error.name !== 'AbortError') {
           if (error.status === 401) expire()
-          setResult({ query, attempt, error: error.message })
+          setResult({ query, headcount, attempt, error: error.message })
         }
       })
     return () => controller.abort()
-  }, [query, attempt, expire])
+  }, [query, attempt, expire, headcount])
   const current =
-    result?.query === query && result?.attempt === attempt ? result : null
+    result?.query === query && result?.headcount === headcount && result?.attempt === attempt ? result : null
   const sourceRevision = params.get('revision')
   const changed =
     current?.data &&
@@ -55,7 +56,7 @@ export default function BasePayReport() {
           >
             Back to Ask about pay
           </Link>
-          <h1 tabIndex={-1}>Annual base pay</h1>
+          <h1 tabIndex={-1}>{headcount ? 'Workforce headcount' : 'Annual base pay'}</h1>
         </div>
       </header>
       <section className="agent-panel">
@@ -79,7 +80,7 @@ export default function BasePayReport() {
           </p>
         ) : (
           <>
-            <ReportChart report={current.data} snapshot={false} />
+            <ReportChart report={{ ...current.data, ...(headcount ? { report_type: 'workforce_headcount', metric: 'headcount' } : {}) }} snapshot={false} />
             <h2>Exact values</h2>
             {current.data.rows.length === 0 ? (
               <p>No recorded salaries match these filters.</p>
@@ -89,9 +90,9 @@ export default function BasePayReport() {
                   <thead>
                     <tr>
                       <th scope="col">Group</th>
-                      <th scope="col">Currency</th>
+                      {!headcount && <th scope="col">Currency</th>}
                       <th scope="col">Employees</th>
-                      {columns.map(([key, label]) => (
+                      {(headcount ? [] : columns).map(([key, label]) => (
                         <th scope="col" key={key}>
                           {label}
                         </th>
@@ -104,9 +105,9 @@ export default function BasePayReport() {
                         <th scope="row">
                           {row.group_name || 'All matching employees'}
                         </th>
-                        <td>{row.currency_code}</td>
+                        {!headcount && <td>{row.currency_code}</td>}
                         <td>{row.headcount}</td>
-                        {columns.map(([key]) => (
+                        {(headcount ? [] : columns).map(([key]) => (
                           <td key={key}>{row[key]}</td>
                         ))}
                       </tr>

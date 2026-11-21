@@ -33,10 +33,10 @@ from payscope.agents.language import (
 )
 from payscope.agents.schemas import TerminalStatus
 from payscope.analytics.cache import ReportCache
-from payscope.analytics.service import get_salary_report
+from payscope.analytics.service import get_salary_report, get_headcount_report
 
 UNSUPPORTED = (
-    "I can summarize current annual gross base pay or compare average or median pay by "
+    "I can summarize workforce headcount, rank groups by employee count, or compare current annual gross base pay by "
     "country, department, or job title within one currency."
 )
 CLARIFICATION_QUESTIONS = {
@@ -366,9 +366,11 @@ class PayWorkflow:
                     if isinstance(request, OptionsRequest):
                         options = await report_options(database, request)
                     else:
-                        report, cache_status = await get_salary_report(
-                            database, request, self.report_cache
-                        )
+                        if request.metric == "headcount":
+                            report = await get_headcount_report(database, request)
+                            cache_status = "bypass"
+                        else:
+                            report, cache_status = await get_salary_report(database, request, self.report_cache)
         except TimeoutError:
             if call_id is not None:
                 async with self.database() as database:

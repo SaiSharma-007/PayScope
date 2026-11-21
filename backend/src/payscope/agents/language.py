@@ -70,6 +70,7 @@ class OpenAIProvider:
             client=self.strong_chat if strong else self.chat,
             name="pay_analyst",
             instructions=prompts["pay_analyst"]
+            + "\nWorkforce headcount is also supported by get_salary_summary with metric=headcount. It counts ALL employees, including those without salaries. Never ask for or filter currency for headcount. For least/fewest use operation=lowest; most use highest. Preserve the requested grouping and global scope."
             + (
                 "\nThe application already looked up reference values for this question. "
                 "Use the supplied codes and IDs and call get_salary_summary directly. If a report tool does not apply, "
@@ -97,6 +98,7 @@ class OpenAIProvider:
                         "Query current annual gross base pay. Set metric to median or average when requested. "
                         "Omit group_by for a single aggregate. For comparisons, group_by is country, "
                         "department, or job_title. Set operation to summary, highest, or lowest."
+                        " For workforce counts set metric=headcount, omit currency_code, and use lowest/highest for fewest/most employees."
                     ),
                 ),
             ],
@@ -104,7 +106,7 @@ class OpenAIProvider:
         writer = Agent(
             client=self.chat,
             name="answer_writer",
-            instructions=prompts["answer_writer"],
+            instructions=prompts["answer_writer"] + "\nFor report_type workforce_headcount, count all employees, use only metric=headcount, and set claim currency to the empty string. Never mention currency or recorded salaries. Preserve lowest/highest and all ties.",
         )
         return analyst, writer
 

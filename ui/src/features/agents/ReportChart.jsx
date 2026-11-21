@@ -21,8 +21,9 @@ const columns = [
 
 export default function ReportChart({ report, snapshot = true }) {
   const id = useId()
+  const headcount = report.report_type === 'workforce_headcount'
   const [measure, setMeasure] = useState(report.metric === 'average' ? 'mean' : report.metric || 'comparison')
-  const [sort, setSort] = useState('descending')
+  const [sort, setSort] = useState(report.operation === 'lowest' ? 'ascending' : 'descending')
   if (!report.rows.length) return null
   const metric = measure === 'comparison' ? 'mean' : measure
   const series = measure === 'comparison'
@@ -32,7 +33,7 @@ export default function ReportChart({ report, snapshot = true }) {
   return (
     <section className="agent-report-chart" aria-label="Interactive salary report">
       <div className="agent-chart-controls">
-        <SelectField id={`${id}-measure`} label="Chart measure" value={measure} onChange={setMeasure} options={measures} />
+        <SelectField id={`${id}-measure`} label="Chart measure" value={measure} onChange={setMeasure} options={headcount ? [{ value: 'headcount', label: 'Total employees' }] : measures} />
         <SelectField id={`${id}-sort`} label="Chart order" value={sort} onChange={setSort} options={[
           { value: 'descending', label: 'Highest first' },
           { value: 'ascending', label: 'Lowest first' },
@@ -46,9 +47,9 @@ export default function ReportChart({ report, snapshot = true }) {
           .map((row, index) => ({ ...row, group_id: row.evidence_id || `${currency}-${row.group_id ?? index}`, group_name: row.group_name || 'All matching employees', eligible: row.headcount }))
           .sort((a, b) => sort === 'name' ? a.group_name.localeCompare(b.group_name) : (Number(a[metric]) - Number(b[metric])) * (sort === 'ascending' ? 1 : -1))
         return (
-          <div className="agent-chart-currency" key={currency}>
+          <div className="agent-chart-currency" key={currency || 'workforce'}>
             <strong>{measure === 'headcount' ? 'Employees' : currency} · {rows.length} {rows.length === 1 ? 'group' : 'groups'}</strong>
-            <InsightChart key={`${currency}-${measure}-${sort}`} type="summary" rows={rows} currency={currency} series={series} columns={columns} valueMode={measure === 'headcount' ? 'count' : 'money'} />
+            <InsightChart key={`${currency}-${measure}-${sort}`} type="summary" rows={rows} currency={currency} series={headcount ? [['headcount', 'Total employees']] : series} columns={headcount ? [columns[4]] : columns} valueMode={measure === 'headcount' ? 'count' : 'money'} />
           </div>
         )
       })}

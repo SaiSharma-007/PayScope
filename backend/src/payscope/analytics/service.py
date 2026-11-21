@@ -1,7 +1,7 @@
 from typing import Literal
 
 from redis.exceptions import RedisError
-from sqlalchemy import func, null, select, true
+from sqlalchemy import and_, func, null, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from payscope.analytics.cache import ReportCache
@@ -23,6 +23,30 @@ GROUPS = {
     "job_title": (job_titles, job_titles.c.id),
 }
 CURRENT_REVISION = select(report_state.c.revision).where(report_state.c.id == 1)
+
+
+async def get_headcount_report(database, filters):
+    from payscope.analytics.schemas import HeadcountReport, HeadcountStatistics
+
+    conditions = employee_dimensions(filters)
+    group_id, group_name = null(), null()
+    source = employees
+    if filters.group_by:
+        table, group_id = GROUPS[filters.group_by]
+        group_name = table.c.name
+        dimension = {"country": employees.c.country_code, "department": employees.c.department_id, "job_title": employees.c.job_title_id}[filters.group_by]
+        source = table.outerjoin(employees, and_(dimension == group_id, *conditions))
+    query = select(group_id.label("group_id"), group_name.label("group_name"), func.count(employees.c.id).label("headcount")).select_from(source)
+    if filters.group_by:
+        query = query.group_by(group_id, group_name)
+        selected = {"country": filters.country_code, "department": filters.department_id, "job_title": filters.job_title_id}[filters.group_by]
+        if selected is not None:
+            query = query.where(group_id == selected)
+    else:
+        query = query.where(*conditions)
+    counts = query.subquery()
+    result = (await database.execute(select(counts, CURRENT_REVISION.scalar_subquery().label("revision")))).mappings().all()
+    return HeadcountReport(revision=result[0].revision if result else await database.scalar(CURRENT_REVISION), group_by=filters.group_by, rows=[HeadcountStatistics.model_validate(row) for row in result])
 CacheStatus = Literal["hit", "miss", "bypass"]
 
 

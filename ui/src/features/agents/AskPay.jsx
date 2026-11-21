@@ -35,12 +35,13 @@ function ReportCard({ report, conversation }) {
   const params = new URLSearchParams({
     ...report.filters,
     revision: report.revision,
+    ...(report.report_type === 'workforce_headcount' ? { report_type: report.report_type } : {}),
     ...(conversation ? { chat: conversation } : {}),
   })
   return (
     <div className="agent-evidence">
       <div>
-        <strong>Annual base pay</strong>
+        <strong>{report.report_type === 'workforce_headcount' ? 'Workforce headcount' : 'Annual base pay'}</strong>
         <span>
           {[report.currency_code, `${report.rows.length} report groups`]
             .filter(Boolean)
@@ -60,8 +61,7 @@ function ReportCard({ report, conversation }) {
                 <tr>
                   <th scope="col">Group</th>
                   <th scope="col">Employees</th>
-                  <th scope="col">Average</th>
-                  <th scope="col">Median</th>
+                  {report.report_type !== 'workforce_headcount' && <><th scope="col">Average</th><th scope="col">Median</th></>}
                 </tr>
               </thead>
               <tbody>
@@ -71,8 +71,7 @@ function ReportCard({ report, conversation }) {
                       {row.group_name || 'All matching employees'}
                     </th>
                     <td>{row.headcount}</td>
-                    <td>{row.mean}</td>
-                    <td>{row.median}</td>
+                    {report.report_type !== 'workforce_headcount' && <><td>{row.mean}</td><td>{row.median}</td></>}
                   </tr>
                 ))}
               </tbody>

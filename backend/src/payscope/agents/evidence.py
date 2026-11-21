@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from payscope.analytics.schemas import ReportFilters, SalaryReport, SalaryStatistics
+from payscope.analytics.schemas import ReportFilters, SalaryReport, SalaryStatistics, HeadcountStatistics
 from payscope.employees.service import get_reference_data
 
 MAX_GROUPS = 50
@@ -45,11 +45,13 @@ class SummaryRequest(ReportFilters):
     @model_validator(mode="after")
     def validate_ranking(self) -> SummaryRequest:
         if self.operation != "summary" and (
-            self.group_by is None or self.metric not in ("median", "average")
+            self.group_by is None or self.metric not in ("median", "average", "headcount")
         ):
             raise ValueError(
-                "A ranking requires a grouping and an average or median metric."
+                "A ranking requires a grouping and an average, median, or headcount metric."
             )
+        if self.metric == "headcount" and self.currency_code is not None:
+            raise ValueError("Workforce headcount is independent of currency; omit currency_code.")
         return self
 
 
@@ -70,7 +72,7 @@ class WriterAnswer(BaseModel):
 
 @dataclass(frozen=True)
 class EvidenceRow:
-    statistics: SalaryStatistics
+    statistics: SalaryStatistics | HeadcountStatistics
     id: UUID
 
     @property
@@ -111,7 +113,7 @@ class Evidence:
         return {
             "revision": self.revision,
             "currency_code": self.currency_code,
-            "report_type": "annual_gross_base",
+            "report_type": "workforce_headcount" if self.request.metric == "headcount" else "annual_gross_base",
             "filters": self.request.model_dump(
                 exclude={"operation", "metric"},
                 exclude_none=True,
@@ -161,7 +163,7 @@ async def validate_report_filters(
 
 
 def currencies_in(report: SalaryReport) -> list[str]:
-    return sorted({result.currency_code for result in report.rows})
+    return sorted({result.currency_code for result in report.rows if result.currency_code})
 
 
 def make_evidence(request: SummaryRequest, report: SalaryReport) -> Evidence:
@@ -182,7 +184,9 @@ def render_claim(
     statistic = row.statistics
     group = statistic.group_name or "All matching employees"
     if metric == "headcount":
-        return f"{group} — {statistic.headcount:,} {MetricLabels[metric]}."
+        label = "employees" if isinstance(statistic, HeadcountStatistics) else MetricLabels[metric]
+        rank = f"{statement} headcount: " if statement != "value" else ""
+        return f"{group} — {rank}{statistic.headcount:,} {label}."
     amount = getattr(statistic, MetricFields[metric])
     rendered = statistic.format_amount(amount)
     label = MetricLabels[metric]
@@ -202,6 +206,8 @@ class ClaimVerifier:
         row = self.rows.get(claim.evidence_id)
         if row is None:
             raise ValueError("Claim does not match report evidence.")
+        if isinstance(row.statistics, HeadcountStatistics) and claim.metric != "headcount":
+            raise ValueError("Headcount evidence cannot support salary claims.")
         key = (row.id, claim.metric, claim.statement)
         if (
             row.group != claim.group

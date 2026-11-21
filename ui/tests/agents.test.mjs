@@ -186,6 +186,37 @@ test('SSE reader handles fragmented UTF-8, comments, and CRLF', async () => {
   assert.deepEqual(events, [{ text: '₹' }])
 })
 
+test('workforce charts retain zero-count countries and open a currency-free report', async () => {
+  const page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
+  const counts = { report_type: 'workforce_headcount', metric: 'headcount', operation: 'lowest', revision: 4, filters: { group_by: 'country' }, rows: [
+    { evidence_id: 'in', group_id: 'IN', group_name: 'India', headcount: 12, currency_code: '' },
+    { evidence_id: 'de', group_id: 'DE', group_name: 'Germany', headcount: 0, currency_code: '' },
+  ] }
+  await page.route('**/api/**', (route) => {
+    const url = new URL(route.request().url())
+    const send = (json) => route.fulfill({ json })
+    if (url.pathname.endsWith('/auth/session')) return send(session(false))
+    if (url.pathname.endsWith('/conversations')) return send({ items: [{ ...summary, active_run_id: null }] })
+    if (url.pathname.endsWith(`/conversations/${chat}`)) return send({ ...summary, active_run_id: null, turns: [{ run_id: run, status: 'completed', messages: [{ role: 'assistant', text: 'Germany — lowest headcount: 0 employees.', structured_content: { report: counts } }] }] })
+    if (url.pathname.endsWith('/analytics/headcount')) {
+      assert.equal(url.searchParams.has('currency_code'), false)
+      return send(counts)
+    }
+    return route.fulfill({ status: 404 })
+  })
+  try {
+    await page.goto(new URL(`/insights/ask?chat=${chat}`, origin).href)
+    await page.getByText('Germany — lowest headcount: 0 employees.', { exact: true }).waitFor()
+    assert.equal(await page.locator('.insight-mark-label').first().innerText(), 'Germany')
+    assert.equal(await page.locator('.insight-mark').count(), 2)
+    await page.getByRole('link', { name: 'Open report', exact: true }).click()
+    await page.getByRole('heading', { name: 'Workforce headcount', exact: true }).waitFor()
+    await page.locator('.insight-mark').first().waitFor()
+    assert.equal(await page.getByRole('columnheader', { name: 'Currency', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('columnheader', { name: 'Average', exact: true }).count(), 0)
+  } finally { await page.close() }
+})
+
 test('new chat keeps its POST stream and restores all five activity stages', async () => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   let detailReads = 0

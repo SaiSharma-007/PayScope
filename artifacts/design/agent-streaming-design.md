@@ -103,6 +103,8 @@ flowchart TD
 
 ## Agent responsibilities
 
+Workforce headcount extends the report tool with `metric: headcount` and summary/highest/lowest operations. It counts employee records directly, including employees without salaries, independently of currency. Grouped counts include configured groups with zero matching employees and preserve ranking ties. Currency filters are rejected for headcount. The `workforce_headcount` evidence card contains counts rather than monetary statistics; its chart and fresh `/api/analytics/headcount` report show employee measures only. Existing salary summaries retain their currency separation and salary-record headcount semantics when no workforce-headcount metric is requested.
+
 | Stage | Responsibility | Observable output |
 | --- | --- | --- |
 | Workflow Orchestrator | Select the next stage from typed outcomes, dispatch tools, enforce limits, and finalize the run | Run status and named handoffs |

@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response, HTTPException
 from sqlalchemy import func, select
 
 from payscope.analytics.compensation import CompensationFilters, get_compensation_report
 from payscope.analytics.insights import InsightFilters, get_salary_insight
 from payscope.analytics.schemas import ReportFilters, SalaryReport
-from payscope.analytics.service import get_salary_report
+from payscope.analytics.service import get_salary_report, get_headcount_report
 from payscope.auth.router import require_session
 from payscope.database import DatabaseSession
 from payscope.models import compensation_packages, countries, employees
@@ -14,6 +14,13 @@ from payscope.models import compensation_packages, countries, employees
 router = APIRouter(
     prefix="/analytics", tags=["Analytics"], dependencies=[Depends(require_session)]
 )
+
+
+@router.get("/headcount")
+async def workforce_headcount(filters: Annotated[ReportFilters, Query()], database: DatabaseSession):
+    if filters.currency_code:
+        raise HTTPException(422, detail="Headcount does not use a currency filter.")
+    return await get_headcount_report(database, filters)
 
 
 @router.get("/compensation")

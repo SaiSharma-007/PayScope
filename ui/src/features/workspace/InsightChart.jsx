@@ -289,7 +289,7 @@ export default function InsightChart({
           awards: rows.filter((row) => row.year === startYear + index),
         }))
       : rows.filter((row) =>
-          type === 'treemap'
+          type === 'summary' ? row.headcount >= 0 : type === 'treemap'
             ? Number(row.amount) > 0
             : type === 'shares'
               ? row.population > 0

@@ -540,7 +540,7 @@ async def _persist_final(
                     tools.c.run_id == run.id,
                     tools.c.tool_name == "get_salary_summary",
                     tools.c.status == "completed",
-                    tools.c.result["report_type"].astext == "annual_gross_base",
+                    tools.c.result["report_type"].astext.in_(("annual_gross_base", "workforce_headcount")),
                 )
                 .limit(1)
             )

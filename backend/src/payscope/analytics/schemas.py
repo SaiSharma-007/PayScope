@@ -37,3 +37,16 @@ class SalaryReport(BaseModel):
     revision: int
     group_by: Grouping | None
     rows: list[SalaryStatistics]
+
+
+class HeadcountStatistics(BaseModel):
+    group_id: int | str | None
+    group_name: str | None
+    headcount: int
+    currency_code: Literal[""] = ""
+
+
+class HeadcountReport(BaseModel):
+    revision: int
+    group_by: Grouping | None
+    rows: list[HeadcountStatistics]
