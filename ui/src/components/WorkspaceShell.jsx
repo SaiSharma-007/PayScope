@@ -83,17 +83,18 @@ function Navigation({ onNavigate }) {
             <NavLink
               to="/admin/agent-prompts"
               onClick={onNavigate}
-              title="Agent prompts"
-              aria-label="Agent prompts"
+              title="Prompt catalog"
+              aria-label="Prompt catalog"
               className={({ isActive }) =>
                 `workspace-link${isActive ? ' active' : ''}`
               }
             >
               <SlidersHorizontal size={20} aria-hidden="true" />
-              <span className="nav-copy">Agent prompts</span>
+              <span className="nav-copy">Prompt catalog</span>
             </NavLink>
           </>
         )}
+        {session?.user.view_agent_observability && <NavLink to="/admin/agent-runs" onClick={onNavigate} title="Agent observability" className={({isActive})=>`workspace-link${isActive?' active':''}`}><Activity size={20} aria-hidden="true"/><span className="nav-copy">Agent observability</span></NavLink>}
       </nav>
       <div className="sidebar-bottom">
         <Link
@@ -133,7 +134,7 @@ export default function WorkspaceShell() {
     pages.find(
       (page) => page.path === pathname || pathname.startsWith(page.path + '/'),
     )?.label ||
-    (pathname === '/admin/agent-prompts' ? 'Agent prompts' : 'Workspace')
+    (pathname === '/admin/agent-prompts' ? 'Prompt catalog' : pathname.startsWith('/admin/agent-runs') ? 'Agent observability' : 'Workspace')
   function toggleNavigation(event) {
     if (mobile) {
       drawer.current.dataset.keyboard = String(event.detail === 0)
@@ -183,7 +184,8 @@ export default function WorkspaceShell() {
               <span>Workspace</span>
               <ChevronRight size={14} aria-hidden="true" />
               <strong aria-current="page">{title}</strong>
-            </nav>
+
+      </nav>
           </div>
           <div className="topbar-actions">
             <span className="workspace-environment">Demo workspace</span>

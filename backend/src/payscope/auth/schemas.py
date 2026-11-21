@@ -15,6 +15,7 @@ class HrUser(BaseModel):
     email: str
     display_name: str
     manage_agent_prompts: bool = False
+    view_agent_observability: bool = False
 
 
 class SessionResponse(BaseModel):

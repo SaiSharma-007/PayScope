@@ -11,6 +11,7 @@ hr_users = sa.Table(
     sa.Column("display_name", sa.Text, nullable=False),
     sa.Column("password_hash", sa.Text, nullable=False),
     sa.Column("is_active", sa.Boolean, nullable=False, server_default=sa.true()),
+    sa.Column("view_agent_observability", sa.Boolean, nullable=False, server_default=sa.false()),
     sa.Column("manage_agent_prompts", sa.Boolean, nullable=False, server_default=sa.false()),
     sa.Column(
         "created_at",

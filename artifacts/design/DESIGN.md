@@ -290,3 +290,8 @@ Chat exchanges use a consistent spacing rhythm: 28 px between desktop turns, 20 
 ### Removal confirmations
 
 All Delete and Remove actions use `useDeleteConfirmation` and `delete-confirmation.css`. Name the item and explain the actual consequence: chat deletion preserves saved reports; report deletion preserves the original chat; compensation component and equity row removal affects the current draft until publication or saving. Keep existing Undo for chats and reports. Use a native modal alert dialog with Cancel initially focused, Escape to cancel, focus restoration, a busy guard against duplicate requests, and inline errors that retain the confirmation for retry. Use contextual icons and labels, compact spacing, and full-width mobile footer actions. Draft removals use a warning icon; persisted deletions use the danger treatment.
+
+
+### Agent administration
+
+Prompt catalog retains the existing two-role draft/review/publish workflow. Agent observability is a separate permission-controlled run table and trace detail. Read runs independently of source chat visibility; show a deleted-source badge instead of a broken link. Preserve historical prompt version references, nullable token usage, explicit status labels, selectable events and expandable tool evidence. Reuse workspace surfaces, typography, SelectField and narrow-screen stacking.

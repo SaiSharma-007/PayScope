@@ -19,6 +19,7 @@ USER_COLUMNS = (
     hr_users.c.email,
     hr_users.c.display_name,
     hr_users.c.manage_agent_prompts,
+    hr_users.c.view_agent_observability,
 )
 PASSWORD_HASHER = PasswordHasher()
 SESSION_TOKEN_BYTES = 32

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from payscope.agents.saved import router as saved_reports_router
 from payscope.agents.api import router as agent_runs_router
 from payscope.agents.history import router as agent_history_router
+from payscope.agents.observability import router as observability_router
 from payscope.agents.prompts import router as agent_prompts_router
 from payscope.agents.runtime import AgentRuntime
 from payscope.analytics.cache import create_report_cache
@@ -69,6 +70,7 @@ api = APIRouter(prefix="/api")
 api.include_router(saved_reports_router)
 api.include_router(agent_history_router)
 api.include_router(agent_prompts_router)
+api.include_router(observability_router)
 api.include_router(agent_runs_router)
 api.include_router(analytics_router)
 api.include_router(auth_router)

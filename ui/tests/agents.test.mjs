@@ -534,6 +534,7 @@ test('admin reviews, publishes, restores, and keeps edits after a version confli
     const send = (json) => route.fulfill({ json })
     const req = route.request()
     if (path.endsWith('/auth/session')) return send(session(true))
+    if (path.endsWith('/agent-prompts')) return send([{...detail(), agent_key:'pay_analyst'}])
     if (path.endsWith('/pay_analyst')) return send(detail())
     if (path.endsWith('/versions'))
       return send({ items: versions, next_before_version: null })
@@ -817,4 +818,32 @@ test('chat names fade on one line and reveal their full title on hover and focus
     await tooltip.waitFor()
     assert.equal(await tooltip.innerText(), title)
   } finally { await page.close() }
+})
+
+
+test('observability retains deleted source traces and prompt references on mobile', async () => {
+ const page=await browser.newPage({viewport:{width:390,height:844}})
+ const row={id:'run-admin', title:'Compare country headcounts', owner:'HR Manager', status:'completed', source_deleted_at:time, created_at:time, started_at:time, finished_at:time, pay_analyst_version:1, answer_writer_version:2, model_calls:1, input_tokens:null, output_tokens:12}
+ await page.route('**/api/**', route=>{
+  const path=new URL(route.request().url()).pathname
+  const send=json=>route.fulfill({json})
+  if(path.endsWith('/auth/session')) {const value=session(true);value.user.view_agent_observability=true;return send(value)}
+  if(path.endsWith('/events'))return send({items:[{event_id:'admin-event-1',sequence:1,event_type:'verification_completed',payload:{outcome:'verified_writer'},created_at:time}],next_after:null})
+  if(path.endsWith('/tools'))return send([])
+  if(path.endsWith('/run-admin'))return send({...row,messages:[{role:'assistant',text:'Verified country comparison.'}]})
+  return send({items:[row],summary:[{status:'completed',count:1,duration_samples:1,average_seconds:0}],next:null})
+ })
+ try {
+  await page.goto(new URL('/admin/agent-runs',origin).href)
+  await page.getByRole('link',{name:row.title}).click()
+  await page.getByText('Source chat deleted',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('link',{name:'Open source chat'}).count(),0)
+  await page.getByText('Verified country comparison.',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'verification completed',exact:false}).click()
+  await page.getByRole('link',{name:'answer writer v2'}).waitFor()
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
+  await page.screenshot({path:'../artifacts/verification/observability-mobile.png',fullPage:true})
+  await page.setViewportSize({width:1440,height:1000})
+  await page.screenshot({path:'../artifacts/verification/observability-desktop.png',fullPage:true})
+ } finally {await page.close()}
 })

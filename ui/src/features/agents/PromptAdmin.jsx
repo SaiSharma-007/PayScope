@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import './observability.css'
 import { request } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import { useUnsavedChanges } from '../compensation/useUnsavedChanges'
@@ -12,8 +14,9 @@ const stamp = (date) =>
     timeStyle: 'short',
   }).format(new Date(date))
 
-function PromptEditor({ agent, onDenied, onDirty }) {
+function PromptEditor({ agent, onDenied, onDirty, onUpdated }) {
   const { session, expire } = useAuth()
+  const [search] = useSearchParams()
   const [loaded, setLoaded] = useState(null)
   const [active, setActive] = useState(null)
   const [history, setHistory] = useState(null)
@@ -46,6 +49,8 @@ function PromptEditor({ agent, onDenied, onDirty }) {
         setLoaded(detail)
         setActive(published)
         setHistory(versions)
+        const pinned = Number(search.get('version'))
+        if (search.get('agent') === agent && Number.isInteger(pinned) && pinned > 0) setSelected(await request(`${path}/versions/${pinned}`, opts))
         if (!keepEdits.current) {
           setBody(detail.draft?.body ?? published.body)
           setNote(detail.draft?.change_note ?? '')
@@ -60,7 +65,7 @@ function PromptEditor({ agent, onDenied, onDirty }) {
         }
       })
     return () => controller.abort()
-  }, [path, refresh, expire, onDenied])
+  }, [path, refresh, expire, onDenied, search, agent])
 
   useEffect(() => {
     onDirty(agent, Boolean(dirty))
@@ -94,6 +99,7 @@ function PromptEditor({ agent, onDenied, onDirty }) {
         }),
       })
       setLoaded(detail)
+      onUpdated(detail)
       setReview(false)
       if (isSave || isRestore) {
         setBody(detail.draft.body)
@@ -327,9 +333,13 @@ function PromptEditor({ agent, onDenied, onDirty }) {
 
 export default function PromptAdmin() {
   const { session } = useAuth()
-  const [agent, setAgent] = useState('pay_analyst')
+  const [params] = useSearchParams()
+  const [agent, setAgent] = useState(params.get('agent') === 'answer_writer' ? 'answer_writer' : 'pay_analyst')
+  const [entries, setEntries] = useState([])
+  const updateEntry = useCallback(detail => setEntries(previous => previous.map(entry => entry.agent_key === detail.agent_key ? detail : entry)), [])
+  useEffect(() => { if (!session.user.manage_agent_prompts) return; const c = new AbortController(); request(catalog, {signal:c.signal}).then(setEntries).catch(()=>{}); return ()=>c.abort() }, [session.user.manage_agent_prompts])
   const [denied, setDenied] = useState(false)
-  const [visitedWriter, setVisitedWriter] = useState(false)
+  const [visitedWriter, setVisitedWriter] = useState(params.get('agent') === 'answer_writer')
   const [dirty, setDirty] = useState({})
   const allowed = session.user.manage_agent_prompts && !denied
   const discardDialog = useUnsavedChanges(
@@ -345,7 +355,7 @@ export default function PromptAdmin() {
       <header className="agent-heading">
         <div>
           <p>Admin</p>
-          <h1 tabIndex={-1}>Agent prompts</h1>
+          <h1 tabIndex={-1}>Prompt catalog</h1>
         </div>
       </header>
       {!allowed ? (
@@ -355,6 +365,8 @@ export default function PromptAdmin() {
         </div>
       ) : (
         <>
+          <div className="prompt-catalog">{entries.map(entry=><button key={entry.agent_key} aria-pressed={agent===entry.agent_key} onClick={()=>{setAgent(entry.agent_key);if(entry.agent_key==='answer_writer')setVisitedWriter(true)}}><strong>{names[entry.agent_key]}</strong><small>{entry.agent_key==='pay_analyst'?'Interprets questions and selects validated reports.':'Explains verified report evidence.'}</small><small>Published v{entry.active.version} · {entry.draft ? 'Draft available' : 'No saved draft'}</small><small>{entry.active.author_name || 'System'} · {stamp(entry.active.published_at)}</small></button>)}</div>
+          {session.user.view_agent_observability && <p><Link to={`/admin/agent-runs?role=${agent}`}>Inspect agent runs →</Link></p>}
           <div className="agent-tabs" role="group" aria-label="Choose an agent">
             {Object.entries(names)
               .reverse()
@@ -376,6 +388,7 @@ export default function PromptAdmin() {
               agent="pay_analyst"
               onDenied={setDenied}
               onDirty={recordDirty}
+              onUpdated={updateEntry}
             />
           </div>
           {visitedWriter && (
@@ -384,6 +397,7 @@ export default function PromptAdmin() {
                 agent="answer_writer"
                 onDenied={setDenied}
                 onDirty={recordDirty}
+              onUpdated={updateEntry}
               />
             </div>
           )}

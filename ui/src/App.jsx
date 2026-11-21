@@ -25,6 +25,7 @@ const SalaryInsights = lazy(() => import('./features/workspace/SalaryInsights'))
 const SavedReports = lazy(() => import('./features/agents/SavedReports'))
 const AskPay = lazy(() => import('./features/agents/AskPay'))
 const BasePayReport = lazy(() => import('./features/agents/BasePayReport'))
+const Observability = lazy(() => import('./features/agents/Observability'))
 const PromptAdmin = lazy(() => import('./features/agents/PromptAdmin'))
 
 function ProtectedRoute() {
@@ -57,12 +58,13 @@ function Pages() {
       '/insights': 'Salary insights',
       '/insights/ask': 'Ask about pay',
       '/insights/base-pay': 'Annual base pay',
-      '/admin/agent-prompts': 'Agent prompts',
+      '/admin/agent-prompts': 'Prompt catalog',
+      '/admin/agent-runs': 'Agent observability',
       '/activity': 'Activity',
       '/saved-reports': 'Saved reports',
       '/rules': 'Compensation rules',
     }
-    document.title = `${titles[pathname] || (pathname.startsWith('/saved-reports/') ? 'Saved report' : pathname.startsWith('/rules/') ? 'Compensation rule' : 'Page not found')} · PayScope`
+    document.title = `${titles[pathname] || (pathname.startsWith('/admin/agent-runs/') ? 'Agent run' : pathname.startsWith('/saved-reports/') ? 'Saved report' : pathname.startsWith('/rules/') ? 'Compensation rule' : 'Page not found')} · PayScope`
     window.scrollTo(0, 0)
     if (previousPath.current !== pathname) {
       const heading = document.querySelector('main h1')
@@ -132,6 +134,7 @@ function Pages() {
                 </Suspense>
               }
             />
+            <Route path="/admin/agent-runs/:runId?" element={<Suspense fallback={<Feedback message="Opening observability…" />}><Observability /></Suspense>} />
             <Route path="/activity" element={<WorkspacePreview />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/rules/new" element={<RuleEditor key="new-rule" />} />

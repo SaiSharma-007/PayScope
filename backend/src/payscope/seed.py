@@ -56,12 +56,12 @@ async def seed_lookup(
 
 async def seed_hr_user(connection: AsyncConnection, password: str) -> UUID:
     demo_account = hr_users.c.email == DEMO_HR_EMAIL
-    query = select(hr_users.c.id, hr_users.c.manage_agent_prompts).where(demo_account)
+    query = select(hr_users.c.id, hr_users.c.manage_agent_prompts, hr_users.c.view_agent_observability).where(demo_account)
     user = (await connection.execute(query)).one_or_none()
     if user is not None:
-        if not user.manage_agent_prompts:
+        if not user.manage_agent_prompts or not user.view_agent_observability:
             await connection.execute(
-                hr_users.update().where(demo_account).values(manage_agent_prompts=True)
+                hr_users.update().where(demo_account).values(manage_agent_prompts=True, view_agent_observability=True)
             )
         return user.id
 
@@ -75,6 +75,7 @@ async def seed_hr_user(connection: AsyncConnection, password: str) -> UUID:
                 "email": DEMO_HR_EMAIL,
                 "display_name": "HR Manager",
                 "manage_agent_prompts": True,
+                "view_agent_observability": True,
                 "password_hash": await asyncio.to_thread(
                     PasswordHasher().hash, password
                 ),
