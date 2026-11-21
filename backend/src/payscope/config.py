@@ -1,6 +1,7 @@
+from typing import Self
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -8,12 +9,32 @@ from sqlalchemy.exc import ArgumentError
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        hide_input_in_errors=True,
     )
 
     database_url: SecretStr
     redis_url: SecretStr | None = None
     session_ttl_seconds: int = Field(default=28_800, ge=60, le=86_400)
+    agent_openai_api_key: SecretStr | None = None
+    agent_openai_model: str | None = None
+    agent_openai_strong_model: str | None = None
+    agent_openai_base_url: str | None = None
+    agent_global_quota: int = Field(default=5, ge=1)
+    agent_user_quota: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_agent_quota(self) -> Self:
+        if (
+            self.agent_user_quota is not None
+            and self.agent_user_quota > self.agent_global_quota
+        ):
+            raise ValueError(
+                "AGENT_USER_QUOTA must be no greater than AGENT_GLOBAL_QUOTA"
+            )
+        return self
 
     @field_validator("redis_url")
     @classmethod
@@ -33,8 +54,10 @@ class Settings(BaseSettings):
     def validate_database_url(cls, value: SecretStr) -> SecretStr:
         try:
             url = make_url(value.get_secret_value())
-        except (ArgumentError, ValueError):
-            raise ValueError("DATABASE_URL must be a PostgreSQL connection URL") from None
+        except ArgumentError, ValueError:
+            raise ValueError(
+                "DATABASE_URL must be a PostgreSQL connection URL"
+            ) from None
         if (
             url.drivername not in {"postgres", "postgresql", "postgresql+asyncpg"}
             or not url.database
@@ -44,7 +67,9 @@ class Settings(BaseSettings):
 
     @property
     def sqlalchemy_url(self) -> URL:
-        url = make_url(self.database_url.get_secret_value()).set(drivername="postgresql+asyncpg")
+        url = make_url(self.database_url.get_secret_value()).set(
+            drivername="postgresql+asyncpg"
+        )
         if "sslmode" in url.query:
             url = url.difference_update_query(["sslmode"]).update_query_dict(
                 {"ssl": url.query["sslmode"]}

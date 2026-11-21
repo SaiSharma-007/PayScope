@@ -7,6 +7,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from payscope.agents.api import router as agent_runs_router
+from payscope.agents.history import router as agent_history_router
+from payscope.agents.prompts import router as agent_prompts_router
+from payscope.agents.runtime import AgentRuntime
 from payscope.analytics.cache import create_report_cache
 from payscope.analytics.router import router as analytics_router
 from payscope.auth.router import router as auth_router
@@ -39,12 +43,17 @@ async def lifespan(app: FastAPI):
             )
             report_cache = create_report_cache(settings)
             app.state.report_cache = report_cache
+            runtime = AgentRuntime.from_settings(app.state.session_factory, report_cache, settings)
+            app.state.agent_runtime = runtime
             try:
                 logger.info("application.started")
                 yield
             finally:
-                if report_cache is not None:
-                    await report_cache.redis.aclose()
+                try:
+                    await runtime.close()
+                finally:
+                    if report_cache is not None:
+                        await report_cache.redis.aclose()
         finally:
             await engine.dispose()
     except Exception as exc:
@@ -56,6 +65,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PayScope", lifespan=lifespan)
 app.add_middleware(RequestLoggingMiddleware)
 api = APIRouter(prefix="/api")
+api.include_router(agent_history_router)
+api.include_router(agent_prompts_router)
+api.include_router(agent_runs_router)
 api.include_router(analytics_router)
 api.include_router(auth_router)
 api.include_router(employees_router)

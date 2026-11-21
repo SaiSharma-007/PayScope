@@ -14,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from payscope.auth.schemas import HrUser, SessionResponse, SignIn
 from payscope.models import auth_sessions, hr_users
 
-USER_COLUMNS = (hr_users.c.id, hr_users.c.email, hr_users.c.display_name)
+USER_COLUMNS = (
+    hr_users.c.id,
+    hr_users.c.email,
+    hr_users.c.display_name,
+    hr_users.c.manage_agent_prompts,
+)
 PASSWORD_HASHER = PasswordHasher()
 SESSION_TOKEN_BYTES = 32
 

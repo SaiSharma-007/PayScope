@@ -14,6 +14,7 @@ class HrUser(BaseModel):
     id: UUID
     email: str
     display_name: str
+    manage_agent_prompts: bool = False
 
 
 class SessionResponse(BaseModel):
