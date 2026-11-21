@@ -63,7 +63,11 @@ async def check_compensation(monkeypatch):
                         ),
                     )
                 )
-                department = await connection.scalar(select(departments.c.id).limit(1))
+                department = await connection.scalar(
+                    departments.insert()
+                    .values(name=f"Compensation test {token}")
+                    .returning(departments.c.id)
+                )
                 title = await connection.scalar(select(job_titles.c.id).limit(1))
                 assert department and title, (
                     "Run the base seed before configured-database checks."
@@ -104,6 +108,10 @@ async def check_compensation(monkeypatch):
                     )
                     assert login.status_code == 200, login.text
                     headers = {"X-CSRF-Token": login.json()["csrf_token"]}
+                    summary_path = "/api/analytics/salary-summary"
+                    summary_filters = {"department_id": department, "currency_code": "INR"}
+                    original = (await client.get(summary_path, params=summary_filters)).json()
+                    assert [row["median"] for row in original["rows"]] == ["900000.00"]
                     rule = {
                         "name": "Test India",
                         "country_code": "IN",
@@ -265,6 +273,14 @@ async def check_compensation(monkeypatch):
                     assert changed.json()["guaranteed_cost"] == "500000.00"
                     assert changed.json()["target_cost"] == "510000.00"
                     assert changed.json()["rule_version_id"] is None
+                    current = (await client.get(summary_path, params=summary_filters)).json()
+                    assert current["revision"] > original["revision"]
+                    assert [row["median"] for row in current["rows"]] == ["500000.00"]
+                    assert current["rows"][0]["headcount"] == 1
+                    assert await connection.scalar(
+                        select(employee_salaries.c.annual_gross_base)
+                        .where(employee_salaries.c.employee_id == employee_id)
+                    ) == Decimal("900000")
                     await check_equity(client, headers, employee_id)
             finally:
                 await transaction.rollback()

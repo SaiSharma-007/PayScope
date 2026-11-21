@@ -162,7 +162,7 @@ function PromptEditor({ agent, onDenied, onDirty, onUpdated }) {
         <header>
           <div>
             <h2>{names[agent]}</h2>
-            <p>{loaded.draft ? 'Saved draft' : 'No saved draft'}</p>
+            <p>{dirty ? 'Unsaved edits' : loaded.draft ? 'Saved draft' : 'Editing a copy of the published prompt'}</p>
           </div>
           <span className="agent-version">
             Published v{loaded.active.version}
@@ -196,7 +196,7 @@ function PromptEditor({ agent, onDenied, onDirty, onUpdated }) {
             mutate('draft')
           }}
         >
-          <label htmlFor={`body-${agent}`}>Prompt instructions</label>
+          <label htmlFor={`body-${agent}`}>Prompt instructions <small>{body.length.toLocaleString()} / 12,000</small></label>
           <textarea
             className="resize-none"
             id={`body-${agent}`}
@@ -351,7 +351,7 @@ export default function PromptAdmin() {
     )
   }, [])
   return (
-    <main id="main" className="page agent-page">
+    <main id="main" className="page agent-page prompt-workspace">
       <header className="agent-heading">
         <div>
           <p>Admin</p>
@@ -365,24 +365,24 @@ export default function PromptAdmin() {
         </div>
       ) : (
         <>
-          <div className="prompt-catalog">{entries.map(entry=><button key={entry.agent_key} aria-pressed={agent===entry.agent_key} onClick={()=>{setAgent(entry.agent_key);if(entry.agent_key==='answer_writer')setVisitedWriter(true)}}><strong>{names[entry.agent_key]}</strong><small>{entry.agent_key==='pay_analyst'?'Interprets questions and selects validated reports.':'Explains verified report evidence.'}</small><small>Published v{entry.active.version} · {entry.draft ? 'Draft available' : 'No saved draft'}</small><small>{entry.active.author_name || 'System'} · {stamp(entry.active.published_at)}</small></button>)}</div>
-          {session.user.view_agent_observability && <p><Link to={`/admin/agent-runs?role=${agent}`}>Inspect agent runs →</Link></p>}
-          <div className="agent-tabs" role="group" aria-label="Choose an agent">
-            {Object.entries(names)
-              .reverse()
-              .map(([key, label]) => (
-                <button
-                  key={key}
-                  aria-pressed={key === agent}
-                  onClick={() => {
-                    if (key === 'answer_writer') setVisitedWriter(true)
-                    setAgent(key)
-                  }}
-                >
-                  {label}
+          <div className="prompt-catalog" role="group" aria-label="Choose an agent">
+            {['pay_analyst', 'answer_writer'].map(key => {
+              const entry = entries.find(item => item.agent_key === key)
+              return (
+                <button key={key} type="button" aria-pressed={agent === key} onClick={() => {
+                  setAgent(key)
+                  if (key === 'answer_writer') setVisitedWriter(true)
+                }}>
+                  <span className="prompt-role-heading"><strong>{names[key]}</strong>
+                    {entry && <span className="agent-version">Live v{entry.active.version}</span>}
+                  </span>
+                  <small>{key === 'pay_analyst' ? 'Interprets questions and selects validated reports.' : 'Turns verified evidence into structured claims.'}</small>
+                  {entry && <small>{dirty[key] ? 'Unsaved edits' : entry.draft ? 'Saved draft' : 'No draft'} · {entry.active.author_name || 'System'}</small>}
                 </button>
-              ))}
+              )
+            })}
           </div>
+          {session.user.view_agent_observability && <p className="prompt-runs-link"><Link to={`/admin/agent-runs?role=${agent}&version=${entries.find(item => item.agent_key === agent)?.active.version || ''}`}>Inspect runs using the published version →</Link></p>}
           <div hidden={agent !== 'pay_analyst'}>
             <PromptEditor
               agent="pay_analyst"

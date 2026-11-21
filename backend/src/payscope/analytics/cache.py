@@ -67,4 +67,4 @@ def create_report_cache(settings: Settings) -> ReportCache | None:
         protocol=2,
         driver_info=None,
     )
-    return ReportCache(client, f"payscope:reports:v1:{namespace}")
+    return ReportCache(client, f"payscope:reports:v2:{namespace}")

@@ -9,6 +9,7 @@ from payscope.analytics.schemas import ReportFilters, SalaryReport, SalaryStatis
 from payscope.employees.service import employee_dimensions
 from payscope.logging import logger
 from payscope.models import (
+    compensation_packages,
     countries,
     departments,
     employee_salaries,
@@ -51,17 +52,17 @@ CacheStatus = Literal["hit", "miss", "bypass"]
 
 
 def report_query(filters: ReportFilters):
-    source = employees.join(employee_salaries)
+    source = employees.outerjoin(employee_salaries).outerjoin(compensation_packages)
     group_id, group_name = null(), null()
     if filters.group_by is not None:
         table, group_id = GROUPS[filters.group_by]
         group_name = table.c.name
         source = source.join(table)
 
-    currency = employee_salaries.c.currency_code
-    amount = employee_salaries.c.annual_gross_base
+    currency = func.coalesce(compensation_packages.c.currency_code, employee_salaries.c.currency_code).label("currency_code")
+    amount = func.coalesce(compensation_packages.c.annual_basic_pay, employee_salaries.c.annual_gross_base).label("annual_gross_base")
     partitions = (currency, group_id)
-    conditions = employee_dimensions(filters)
+    conditions = (*employee_dimensions(filters), amount.is_not(None))
     if filters.currency_code is not None:
         conditions = (*conditions, currency == filters.currency_code)
     ranked = (

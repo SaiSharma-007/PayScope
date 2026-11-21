@@ -8,3 +8,60 @@
 .observe-detail dl>div{display:grid;grid-template-columns:minmax(100px,1fr) 2fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--divider);font-size:13px}.observe-detail dt{color:var(--muted)}.observe-detail dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 
 .observability .agent-heading h1{font-size:30px;letter-spacing:-.035em}.observability .agent-heading>div>p{font-size:14px}.observability .agent-panel{border-radius:18px}.observability .agent-heading{margin-bottom:24px}
+
+/* Admin workspaces share the same quiet surfaces as the chat and report library. */
+.prompt-workspace .agent-heading h1 { font-size: 30px; letter-spacing: -.035em; }
+.prompt-role-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.prompt-catalog button { cursor: pointer; min-height: 104px; }
+.prompt-catalog button[aria-pressed=true] { background: var(--surface-subtle); }
+.prompt-runs-link { margin: -8px 0 20px; font-size: 13px; }
+.prompt-workspace .agent-editor label[for^='body-'] { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.prompt-workspace .agent-editor textarea { min-height: 290px; resize: vertical; line-height: 1.6; }
+.prompt-workspace .agent-panel { border-radius: 18px; }
+.observe-filters { padding: 16px; background: var(--surface); border: 1px solid var(--divider); border-radius: 16px; }
+.observe-filter-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.observe-advanced { grid-column: 1 / -1; border-top: 1px solid var(--divider); padding-top: 12px; }
+.observe-advanced summary { cursor: pointer; font-size: 13px; }
+.observe-advanced-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.observe-table td:nth-child(5), .observe-table td:nth-child(6) { font-variant-numeric: tabular-nums; }
+.observe-trace > section { min-width: 0; }
+.observe-trace > section:first-child { max-height: min(480px, 65vh); overflow: auto; }
+.observe-event { border-inline-start: 2px solid transparent; }
+.observe-event[aria-pressed=true] { border-inline-start-color: var(--accent); }
+.observe-source-badge { border-radius: 8px; background: var(--surface-subtle); padding: 2px 8px; }
+@media (max-width: 760px) { .observe-advanced-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 400px) { .observe-advanced-fields { grid-template-columns: 1fr; } }
+@media (hover: hover) and (pointer: fine) { .observe-event:hover, .prompt-catalog button:hover { background: var(--surface-subtle); } }
+@media (prefers-reduced-motion: no-preference) and (pointer: fine) { .prompt-catalog button:active:not(:focus-visible) { transform: scale(.985); } }
+
+.run-metrics { display: grid; gap: 16px; margin-bottom: 24px; }
+.run-metric-totals { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); margin: 0; border: 1px solid var(--divider); border-radius: 16px; background: var(--surface); }
+.run-metric-totals > div { padding: 16px 20px; min-width: 0; }
+.run-metric-totals > div + div { border-inline-start: 1px solid var(--divider); }
+.run-metric-totals dt, .run-metric-panel p, .token-axis, .run-outcomes small { color: var(--muted); font-size: 13px; }
+.run-metric-totals dd { margin: 4px 0 0; font-size: clamp(20px,2vw,28px); font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.run-metric-charts { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 16px; }
+.run-metric-panel { min-width: 0; }
+.run-metric-panel h2 { margin: 0; font-size: 17px; }
+.run-metric-panel p { margin: 6px 0; }
+.token-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 8px; font-size: 12px; }
+.token-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-inline-end: 6px; background: var(--accent); }
+.token-legend span + span::before, .token-output { background: #178d82; }
+.token-bars { display: flex; gap: 2px; min-height: 122px; border-bottom: 1px solid var(--divider); }
+.token-bars button { flex: 1; min-width: 0; border: 0; border-radius: 6px 6px 0 0; background: transparent; padding: 6px 3px 0; cursor: pointer; }
+.token-bars button[aria-pressed=true] { background: var(--surface-subtle); }
+.token-bar { height: 110px; width: min(100%,32px); margin: auto; display: flex; flex-direction: column; justify-content: end; }
+.token-bar i { display: block; }
+.token-input { background: var(--accent); }
+.token-axis { display: flex; justify-content: space-between; margin-top: 6px; }
+.run-metric-panel .token-reading { margin: 14px 0 0; overflow-wrap: anywhere; }
+.run-outcomes { display: grid; gap: 12px; list-style: none; margin: 14px 0 0; padding: 0; }
+.run-outcomes li { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-size: 13px; }
+.run-outcomes meter, .run-outcomes small { grid-column: 1 / -1; }
+.run-outcomes meter { width: 100%; accent-color: var(--accent); }
+@media (max-width: 760px) {
+  .run-metric-charts { grid-template-columns: minmax(0,1fr); }
+  .run-metric-totals { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .run-metric-totals > div:nth-child(3) { border-inline-start: none; }
+  .run-metric-totals > div:nth-child(n+3) { border-top: 1px solid var(--divider); }
+}

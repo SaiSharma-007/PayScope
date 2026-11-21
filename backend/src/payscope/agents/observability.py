@@ -25,6 +25,27 @@ def model_usage(payloads):
     return {'model_calls': len(calls), 'input_tokens': sum(p['input_tokens'] for p in calls) if calls and all(p.get('input_tokens') is not None for p in calls) else None, 'output_tokens': sum(p['output_tokens'] for p in calls) if calls and all(p.get('output_tokens') is not None for p in calls) else None}
 
 
+async def token_metrics(database, filtered, model):
+    input_tokens = events.c.payload['input_tokens'].astext.cast(sa.BigInteger)
+    output_tokens = events.c.payload['output_tokens'].astext.cast(sa.BigInteger)
+    usage = sa.select(
+        sa.func.count().label('calls'),
+        sa.func.count().filter(input_tokens.is_not(None), output_tokens.is_not(None)).label('complete_calls'),
+        sa.func.sum(input_tokens).label('input_tokens'),
+        sa.func.sum(output_tokens).label('output_tokens'),
+    ).select_from(filtered.join(events, events.c.run_id == filtered.c.id)).where(
+        events.c.event_type == 'model_completed',
+    )
+    if model:
+        usage = usage.where(events.c.payload['model'].astext == model)
+    totals = (await database.execute(usage)).mappings().one()
+    day = sa.cast(sa.func.timezone('UTC', events.c.created_at), sa.Date).label('day')
+    daily = (await database.execute(
+        usage.add_columns(day).group_by(day).order_by(day.desc()).limit(14)
+    )).mappings().all()
+    return {'totals': totals, 'daily': list(reversed(daily))}
+
+
 @router.get('')
 async def listing(database: DatabaseSession, status: Literal['completed','failed','cancelled','interrupted','awaiting_clarification','unsupported','queued','running'] | None = None, owner: UUID | None = None, role: Literal['pay_analyst','answer_writer'] | None = None, version: Annotated[int | None, Query(gt=0)] = None, source: Literal['all','available','deleted'] = 'all', model: Annotated[str | None, Query(max_length=200)] = None, run_id: UUID | None = None, start: AwareDatetime | None = None, end: AwareDatetime | None = None, before: AwareDatetime | None = None, before_id: UUID | None = None, limit: Annotated[int, Query(ge=1, le=100)] = 30):
     query = base
@@ -42,6 +63,7 @@ async def listing(database: DatabaseSession, status: Literal['completed','failed
     filtered = query.subquery()
     seconds = sa.extract('epoch', filtered.c.finished_at - filtered.c.started_at)
     totals = (await database.execute(sa.select(filtered.c.status, sa.func.count().label('count'), sa.func.avg(seconds).label('average_seconds'), sa.func.count(seconds).label('duration_samples')).group_by(filtered.c.status))).mappings().all()
+    metrics = await token_metrics(database, filtered, model)
     if before:
         if not before_id: raise HTTPException(422, detail='A complete page cursor is required.')
         query = query.where(sa.tuple_(runs.c.created_at, runs.c.id) < sa.tuple_(before, before_id))
@@ -50,7 +72,7 @@ async def listing(database: DatabaseSession, status: Literal['completed','failed
     if page:
         usage = (await database.execute(sa.select(events.c.run_id, events.c.payload).where(events.c.run_id.in_([r['id'] for r in page]), events.c.event_type == 'model_completed'))).all()
         for row in page: row.update(model_usage(p for rid, p in usage if rid == row['id']))
-    return {'summary': totals, 'items': page, 'next': {'before': page[-1]['created_at'], 'before_id': page[-1]['id']} if len(rows) > limit else None}
+    return {'summary': totals, 'token_metrics': metrics, 'items': page, 'next': {'before': page[-1]['created_at'], 'before_id': page[-1]['id']} if len(rows) > limit else None}
 
 
 async def load(database, run_id):
