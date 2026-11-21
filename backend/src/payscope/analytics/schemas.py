@@ -1,7 +1,7 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from payscope.employees.schemas import EmployeeDimensions
 
@@ -10,6 +10,12 @@ Grouping = Literal["country", "department", "job_title"]
 
 class ReportFilters(EmployeeDimensions):
     group_by: Grouping | None = None
+    currency_code: Annotated[str, Field(pattern=r"^[A-Za-z]{3}$")] | None = None
+
+    @field_validator("currency_code")
+    @classmethod
+    def normalize_currency(cls, code: str | None) -> str | None:
+        return code.upper() if code is not None else None
 
 
 class SalaryStatistics(BaseModel):

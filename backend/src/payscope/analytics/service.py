@@ -37,6 +37,9 @@ def report_query(filters: ReportFilters):
     currency = employee_salaries.c.currency_code
     amount = employee_salaries.c.annual_gross_base
     partitions = (currency, group_id)
+    conditions = employee_dimensions(filters)
+    if filters.currency_code is not None:
+        conditions = (*conditions, currency == filters.currency_code)
     ranked = (
         select(
             currency,
@@ -47,7 +50,7 @@ def report_query(filters: ReportFilters):
             func.count().over(partition_by=partitions).label("population"),
         )
         .select_from(source)
-        .where(*employee_dimensions(filters))
+        .where(*conditions)
         .subquery()
     )
     amount = ranked.c.annual_gross_base

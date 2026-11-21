@@ -23,10 +23,11 @@ class ReportCache:
     prefix: str
 
     def key(self, filters: ReportFilters, revision: int) -> str:
-        return (
+        key = (
             f"{self.prefix}:{revision}:{filters.country_code or '-'}:"
             f"{filters.department_id or '-'}:{filters.job_title_id or '-'}:{filters.group_by or '-'}"
         )
+        return f"{key}:{filters.currency_code}" if filters.currency_code else key
 
     async def get(self, filters: ReportFilters, revision: int) -> SalaryReport | None:
         async with asyncio.timeout(CACHE_TIMEOUT_SECONDS):
