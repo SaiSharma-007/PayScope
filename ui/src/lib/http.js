@@ -7,15 +7,17 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { csrf, ...options } = {}) {
+export async function request(path, { csrf, stream = false, ...options } = {}) {
   let response
   try {
     response = await fetch(`/api${path}`, {
       ...options,
-      signal: AbortSignal.any([
-        AbortSignal.timeout(15000),
-        ...(options.signal ? [options.signal] : []),
-      ]),
+      signal: stream
+        ? options.signal
+        : AbortSignal.any([
+            AbortSignal.timeout(15000),
+            ...(options.signal ? [options.signal] : []),
+          ]),
       credentials: 'same-origin',
       headers: {
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
@@ -47,5 +49,5 @@ export async function request(path, { csrf, ...options } = {}) {
       detail?.code,
     )
   }
-  return response.status === 204 ? null : response.json()
+  return stream ? response : response.status === 204 ? null : response.json()
 }

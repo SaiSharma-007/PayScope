@@ -34,6 +34,7 @@ const pages = [
 ]
 
 function Navigation({ onNavigate }) {
+  const { session } = useAuth()
   return (
     <>
       <div className="workspace-brand">
@@ -74,6 +75,23 @@ function Navigation({ onNavigate }) {
           <span className="nav-copy">Settings</span>
           <span className="nav-preview">Soon</span>
         </span>
+        {session?.user.manage_agent_prompts && (
+          <>
+            <p className="nav-section-label nav-secondary">ADMIN</p>
+            <NavLink
+              to="/admin/agent-prompts"
+              onClick={onNavigate}
+              title="Agent prompts"
+              aria-label="Agent prompts"
+              className={({ isActive }) =>
+                `workspace-link${isActive ? ' active' : ''}`
+              }
+            >
+              <SlidersHorizontal size={20} aria-hidden="true" />
+              <span className="nav-copy">Agent prompts</span>
+            </NavLink>
+          </>
+        )}
       </nav>
       <div className="sidebar-bottom">
         <Link
@@ -112,7 +130,8 @@ export default function WorkspaceShell() {
   const title =
     pages.find(
       (page) => page.path === pathname || pathname.startsWith(page.path + '/'),
-    )?.label || 'Workspace'
+    )?.label ||
+    (pathname === '/admin/agent-prompts' ? 'Agent prompts' : 'Workspace')
   function toggleNavigation(event) {
     if (mobile) {
       drawer.current.dataset.keyboard = String(event.detail === 0)

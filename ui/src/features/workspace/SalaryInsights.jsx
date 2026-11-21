@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ChevronRight,
+  MessageSquare,
   RotateCw,
   SlidersHorizontal,
 } from 'lucide-react'
@@ -566,16 +567,21 @@ export default function SalaryInsights() {
           </h1>
           <p>Explore pay, payroll, and equity across your workforce.</p>
         </div>
-        <button
-          type="button"
-          className="button secondary insight-refresh"
-          aria-label="Refresh report"
-          disabled={loading}
-          onClick={retry}
-        >
-          <RotateCw size={16} aria-hidden="true" />
-          <span>Refresh report</span>
-        </button>
+        <div className="insight-heading-actions">
+          <Link className="button primary" to="/insights/ask">
+            <MessageSquare size={16} aria-hidden="true" /> Ask about pay
+          </Link>
+          <button
+            type="button"
+            className="button secondary insight-refresh"
+            aria-label="Refresh report"
+            disabled={loading}
+            onClick={retry}
+          >
+            <RotateCw size={16} aria-hidden="true" />
+            <span>Refresh report</span>
+          </button>
+        </div>
       </div>
 
       <section className="panel insight-controls" aria-label="Report controls">

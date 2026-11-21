@@ -22,6 +22,9 @@ import Rules from './features/compensation/Rules'
 import RuleEditor from './features/compensation/RuleEditor'
 
 const SalaryInsights = lazy(() => import('./features/workspace/SalaryInsights'))
+const AskPay = lazy(() => import('./features/agents/AskPay'))
+const BasePayReport = lazy(() => import('./features/agents/BasePayReport'))
+const PromptAdmin = lazy(() => import('./features/agents/PromptAdmin'))
 
 function ProtectedRoute() {
   const auth = useAuth()
@@ -51,6 +54,9 @@ function Pages() {
       '/employees': 'Employees',
       '/overview': 'Overview',
       '/insights': 'Salary insights',
+      '/insights/ask': 'Ask about pay',
+      '/insights/base-pay': 'Annual base pay',
+      '/admin/agent-prompts': 'Agent prompts',
       '/activity': 'Activity',
       '/rules': 'Compensation rules',
     }
@@ -69,6 +75,8 @@ function Pages() {
         Skip to content
       </a>
       {!pathname.startsWith('/rules') &&
+        !pathname.startsWith('/insights/') &&
+        !pathname.startsWith('/admin/') &&
         !['/employees', '/overview', '/insights', '/activity'].includes(
           pathname,
         ) && <Header />}
@@ -86,6 +94,36 @@ function Pages() {
                   fallback={<Feedback message="Opening Salary insights…" />}
                 >
                   <SalaryInsights />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/insights/ask"
+              element={
+                <Suspense
+                  fallback={<Feedback message="Opening Ask about pay…" />}
+                >
+                  <AskPay />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/insights/base-pay"
+              element={
+                <Suspense
+                  fallback={<Feedback message="Opening annual base pay…" />}
+                >
+                  <BasePayReport />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/agent-prompts"
+              element={
+                <Suspense
+                  fallback={<Feedback message="Opening agent prompts…" />}
+                >
+                  <PromptAdmin />
                 </Suspense>
               }
             />

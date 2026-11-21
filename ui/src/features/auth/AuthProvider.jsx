@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { request } from '../../lib/http'
 import { AuthContext } from './context'
 
@@ -6,6 +6,9 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState({ status: 'loading', session: null })
   const [attempt, setAttempt] = useState(0)
   const generation = useRef(0)
+  // A new authentication session must never inherit another session's salary chats.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sessionCache = useMemo(() => new Map(), [state.session])
   useEffect(() => {
     const controller = new AbortController()
     const current = ++generation.current
@@ -69,7 +72,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext
-      value={{ ...state, refresh: retrySession, signIn, signOut, expire }}
+      value={{ ...state, sessionCache, refresh: retrySession, signIn, signOut, expire }}
     >
       {children}
     </AuthContext>
