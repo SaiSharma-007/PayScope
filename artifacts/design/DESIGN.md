@@ -210,7 +210,7 @@ Seeded packages use clearly named demo country rules and components. Each old am
 
 ### Theme preference behavior
 
-The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview shows live workforce coverage and links into country reports. Activity is labeled as a preview. Settings is labeled Soon and unavailable.
+The signed-in workspace has a persistent sidebar and top navbar with the current section, theme control, HR identity, and sign-out action. Desktop navigation collapses to icons. Below 1100 px, a modal navigation drawer supports Escape, focus containment, and focus restoration. Overview shows live workforce coverage and links into country reports. Activity is labeled as a preview.
 
 Salary insights keeps the selected view, workforce filters, reporting period, and payroll drill-down in the URL. Each currency panel presents coverage, the chart, the selected group's figures, and an exact-values table from the same response. Horizontal charts use the range and median tokens. Cost and equity series reuse the range, median, and success tokens with text legends. Payroll tiles show the distribution among visible groups, with shares computed against the full filtered currency total. On narrow screens, the shared select replaces the view links, charts stack their labels, and exact values become labeled rows. The equity chart owns its horizontal scroll when the selected years exceed the available width.
 
@@ -295,3 +295,7 @@ All Delete and Remove actions use `useDeleteConfirmation` and `delete-confirmati
 ### Agent administration
 
 Prompt catalog retains the existing two-role draft/review/publish workflow. Agent observability is a separate permission-controlled run table and trace detail. Read runs independently of source chat visibility; show a deleted-source badge instead of a broken link. Preserve historical prompt version references, nullable token usage, explicit status labels, selectable events and expandable tool evidence. Reuse workspace surfaces, typography, SelectField and narrow-screen stacking.
+
+### Workforce overview
+
+The Overview opens with a plum coverage dial derived from real employee records. Use the existing Instrument Sans and PayScope surfaces around this focal point. The dial measures employees with base pay on file. The national breakdown uses exclusive categories: saved package basic pay, recorded salary only, and missing base pay. Scale the country bars by headcount by default and offer proportional comparison with Share. Keep exact counts visible alongside the bars and link country actions to the matching directory. Needs attention links into the missing-pay filter; complete and empty populations have distinct states. The hero and chart stack on narrow screens and keyboard selection updates instantly.

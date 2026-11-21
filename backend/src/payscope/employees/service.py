@@ -80,6 +80,16 @@ async def list_employees(
     database: AsyncSession, filters: EmployeeFilters
 ) -> EmployeePage:
     matches = select(employees.c.id).where(*employee_dimensions(filters))
+    if filters.pay_status is not None:
+        has_pay = or_(
+            select(compensation_packages.c.employee_id)
+            .where(compensation_packages.c.employee_id == employees.c.id)
+            .exists(),
+            select(employee_salaries.c.employee_id)
+            .where(employee_salaries.c.employee_id == employees.c.id)
+            .exists(),
+        )
+        matches = matches.where(has_pay if filters.pay_status == "recorded" else ~has_pay)
     if filters.search:
         matches = matches.where(
             or_(

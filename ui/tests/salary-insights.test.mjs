@@ -188,7 +188,7 @@ async function snapshot(page, name) {
 }
 
 async function withFixture(run, options = {}) {
-  const { handle, ...contextOptions } = options
+  const { handle, handlePath, ...contextOptions } = options
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
     ...contextOptions,
@@ -212,6 +212,7 @@ async function withFixture(run, options = {}) {
         },
       })
     }
+    if (await handlePath?.(route, url)) return
     assert.equal(url.pathname, '/api/analytics/salary-insights')
     requests.push(url.searchParams)
     if (await handle?.(route, url.searchParams)) return
@@ -224,6 +225,55 @@ async function withFixture(run, options = {}) {
     await context.close()
   }
 }
+
+test('Overview shows pay coverage and sends HR to the missing-pay cohort', async () => {
+  const breakdown = [
+    { country_code: 'IN', country_name: 'India', employees: 2620, packages: 2110, salary_only: 480, missing_pay: 30 },
+    { country_code: 'US', country_name: 'United States', employees: 2380, packages: 1770, salary_only: 600, missing_pay: 10 },
+    { country_code: 'GB', country_name: 'United Kingdom', employees: 1870, packages: 1510, salary_only: 350, missing_pay: 10 },
+    { country_code: 'DE', country_name: 'Germany', employees: 1710, packages: 1360, salary_only: 330, missing_pay: 20 },
+    { country_code: 'FR', country_name: 'France', employees: 1420, packages: 1010, salary_only: 320, missing_pay: 90 },
+  ]
+  await withFixture(async (page) => {
+    await page.goto(`${origin}/overview`)
+    await page.getByRole('heading', { name: 'Needs attention' }).waitFor()
+    await page.getByText('98.4%', { exact: true }).waitFor()
+    for (const width of [1440, 1024, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 950 })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Overview fits ${width}px`)
+      if (width === 1440 || width === 390) await snapshot(page, `overview-${width}`)
+    }
+    const share = page.getByRole('button', { name: 'Share', exact: true })
+    await share.focus()
+    await page.keyboard.press('Enter')
+    assert.equal(await share.getAttribute('aria-pressed'), 'true')
+    await page.getByText('0–100%', { exact: true }).waitFor()
+    if (snapshots) {
+      await page.setViewportSize({ width: 1440, height: 950 })
+      await page.getByRole('switch', { name: 'Dark theme' }).press('Enter')
+      assert.equal(await page.getByRole('switch', { name: 'Dark theme' }).getAttribute('aria-checked'), 'true')
+      await snapshot(page, 'overview-dark')
+    }
+    await page.getByRole('link', { name: /France 90/ }).click()
+    await page.getByRole('heading', { name: 'Employees', exact: true }).waitFor()
+    assert.match(page.url(), /country_code=FR&pay_status=missing/)
+    await page.getByText('0 matching employees', { exact: true }).waitFor()
+  }, {
+    async handlePath(route, url) {
+      if (url.pathname === '/api/analytics/workforce-overview') {
+        await route.fulfill({ json: { employees: 10000, packages: 7760, salary_only: 2080, missing_pay: 160, countries: breakdown } })
+        return true
+      }
+      if (url.pathname === '/api/employees') {
+        assert.equal(url.searchParams.get('pay_status'), 'missing')
+        assert.equal(url.searchParams.get('country_code'), 'FR')
+        await route.fulfill({ json: { items: [], total: 0, page: 1, page_size: 10 } })
+        return true
+      }
+      return false
+    },
+  })
+})
 
 const table = (page, currency = 'INR') =>
   page.getByRole('table', { name: `Exact values in ${currency}` })

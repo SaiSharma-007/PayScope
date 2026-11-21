@@ -9,7 +9,7 @@ from payscope.analytics.schemas import ReportFilters, SalaryReport
 from payscope.analytics.service import get_salary_report, get_headcount_report
 from payscope.auth.router import require_session
 from payscope.database import DatabaseSession
-from payscope.models import compensation_packages, countries, employees
+from payscope.models import compensation_packages, countries, employee_salaries, employees
 
 router = APIRouter(
     prefix="/analytics", tags=["Analytics"], dependencies=[Depends(require_session)]
@@ -53,14 +53,20 @@ async def salary_insights(
 
 @router.get("/workforce-overview")
 async def workforce_overview(database: DatabaseSession):
+    has_package = compensation_packages.c.employee_id.is_not(None)
+    has_salary = employee_salaries.c.employee_id.is_not(None)
     rows = await database.execute(
         select(
             countries.c.code.label("country_code"),
             countries.c.name.label("country_name"),
             func.count(employees.c.id).label("employees"),
             func.count(compensation_packages.c.employee_id).label("packages"),
+            func.count().filter(~has_package, has_salary).label("salary_only"),
+            func.count().filter(~has_package, ~has_salary).label("missing_pay"),
         )
-        .select_from(employees.join(countries).outerjoin(compensation_packages))
+        .select_from(
+            employees.join(countries).outerjoin(compensation_packages).outerjoin(employee_salaries)
+        )
         .group_by(countries.c.code, countries.c.name)
         .order_by(countries.c.name)
     )
@@ -68,6 +74,8 @@ async def workforce_overview(database: DatabaseSession):
     return {
         "employees": sum(row["employees"] for row in groups),
         "packages": sum(row["packages"] for row in groups),
+        "salary_only": sum(row["salary_only"] for row in groups),
+        "missing_pay": sum(row["missing_pay"] for row in groups),
         "countries": groups,
     }
 

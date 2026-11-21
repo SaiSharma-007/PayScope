@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Path
 from pydantic import BaseModel, Field, StringConstraints, field_validator
@@ -22,6 +22,7 @@ class EmployeeDimensions(BaseModel):
 
 
 class EmployeeFilters(EmployeeDimensions):
+    pay_status: Literal["recorded", "missing"] | None = None
     search: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] = (
         ""
     )

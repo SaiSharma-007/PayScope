@@ -29,6 +29,7 @@ import {
   seriesFor,
 } from './insightViews'
 import { useWorkspaceReport } from './useWorkspaceReport'
+import './reports.css'
 
 const dimensions = [
   ['country_code', 'Country', 'countries', 'code', 'All countries'],

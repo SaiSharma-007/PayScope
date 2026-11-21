@@ -108,6 +108,16 @@ async def check_compensation(monkeypatch):
                     )
                     assert login.status_code == 200, login.text
                     headers = {"X-CSRF-Token": login.json()["csrf_token"]}
+                    coverage = (await client.get("/api/analytics/workforce-overview")).json()
+                    assert coverage["employees"] == (
+                        coverage["packages"] + coverage["salary_only"] + coverage["missing_pay"]
+                    )
+                    for status, expected_id in (("recorded", employee_id), ("missing", employee_id + 1)):
+                        filtered = await client.get(
+                            "/api/employees", params={"department_id": department, "pay_status": status}
+                        )
+                        assert filtered.status_code == 200
+                        assert [item["id"] for item in filtered.json()["items"]] == [expected_id]
                     summary_path = "/api/analytics/salary-summary"
                     summary_filters = {"department_id": department, "currency_code": "INR"}
                     original = (await client.get(summary_path, params=summary_filters)).json()
@@ -277,6 +287,11 @@ async def check_compensation(monkeypatch):
                     assert current["revision"] > original["revision"]
                     assert [row["median"] for row in current["rows"]] == ["500000.00"]
                     assert current["rows"][0]["headcount"] == 1
+                    after_coverage = (await client.get("/api/analytics/workforce-overview")).json()
+                    assert after_coverage["employees"] == coverage["employees"]
+                    assert after_coverage["packages"] == coverage["packages"] + 1
+                    assert after_coverage["salary_only"] == coverage["salary_only"] - 1
+                    assert after_coverage["missing_pay"] == coverage["missing_pay"]
                     assert await connection.scalar(
                         select(employee_salaries.c.annual_gross_base)
                         .where(employee_salaries.c.employee_id == employee_id)

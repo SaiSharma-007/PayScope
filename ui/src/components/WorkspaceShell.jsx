@@ -8,7 +8,6 @@ import {
   ChevronRight,
   LayoutDashboard,
   PanelLeft,
-  Settings2,
   SlidersHorizontal,
   Users,
   X,
@@ -71,12 +70,6 @@ function Navigation({ onNavigate }) {
             )}
           </NavLink>
         ))}
-        <p className="nav-section-label nav-secondary">MANAGE</p>
-        <span className="workspace-link nav-unavailable" aria-disabled="true">
-          <Settings2 size={20} aria-hidden="true" />
-          <span className="nav-copy">Settings</span>
-          <span className="nav-preview">Soon</span>
-        </span>
         {session?.user.manage_agent_prompts && (
           <>
             <p className="nav-section-label nav-secondary">ADMIN</p>

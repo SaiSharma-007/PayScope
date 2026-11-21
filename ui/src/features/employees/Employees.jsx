@@ -90,6 +90,7 @@ export default function Employees() {
     'country_code',
     'department_id',
     'job_title_id',
+    'pay_status',
   ].some((name) => params.get(name))
   function changePage(value) {
     tableRegion.current?.focus({ preventScroll: true })
@@ -185,6 +186,17 @@ export default function Employees() {
               }))}
             />
           ))}
+          <SelectField
+            id="employee-pay-status"
+            label="Base pay"
+            value={params.get('pay_status') || ''}
+            onChange={(value) => filter('pay_status', value)}
+            placeholder="Any pay status"
+            options={[
+              { value: 'recorded', label: 'Base pay on file' },
+              { value: 'missing', label: 'Missing base pay' },
+            ]}
+          />
         </div>
         {referenceError && (
           <div className="reference-error">
