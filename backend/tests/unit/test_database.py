@@ -42,4 +42,8 @@ def test_other_postgres_urls_keep_application_pooling(monkeypatch, host, port):
     options = create_engine.call_args.kwargs
     assert options["poolclass"] is None
     assert options["pool_pre_ping"] is True
-    assert options["connect_args"] == {"timeout": 5}
+    assert options["connect_args"] == (
+        {"timeout": 5, "ssl": "require"}
+        if host.endswith(".pooler.supabase.com")
+        else {"timeout": 5}
+    )

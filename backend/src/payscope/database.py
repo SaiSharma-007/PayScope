@@ -15,6 +15,8 @@ def create_database_engine(settings: Settings, *, pooled: bool = True) -> AsyncE
     host = (url.host or "").lower()
     transaction_pooler = url.port == 6543 and host.endswith(".pooler.supabase.com")
     connect_args: dict[str, object] = {"timeout": 5}
+    if host.endswith(".pooler.supabase.com"):
+        connect_args["ssl"] = url.query.get("ssl", "require")
     if transaction_pooler:
         pooled = False
         connect_args.update(
