@@ -258,3 +258,17 @@ Give the amber layer opposite offsets, use `cubic-bezier(0.45, 0, 0.55, 1)` for 
 - Spend the strongest contrast and largest type on the primary task. Let the landing illustration carry the decorative motion.
 - Keep transitions interruptible, focus visible, and salary values readable throughout data updates.
 - Verify light and dark system themes, forced colors, reduced motion, rapid switch reversal, keyboard control, 200% zoom, and 320 px width when the theme is implemented. Check long names and currency values with a missing salary, a loading table, and a failed save.
+
+### Agent workspace
+
+Keep the conversation list beside a viewport-height transcript on desktop, with a compact heading and a persistent bottom composer. On narrow screens, use a compact horizontal conversation list above the transcript. Use the workspace surface and accent tokens. Keep report activity expandable and put the exact-value report link beside the saved evidence it verifies. Follow new messages while the reader is at the end of the transcript and preserve their position while they review earlier messages.
+
+Adopting a new conversation ID updates the URL without replacing the live stream or reloading history. Enter sends, Shift+Enter inserts a line, and IME composition never submits. Keep the composer editable during generation so HR can draft the next question; only one request may be submitted per conversation. Interrupted turns retain a readable outcome and recovery action rather than an empty assistant message.
+
+Activity uses actual execution events for the orchestrator, Pay Analyst, report validation tools, Answer Writer, and final verification. Pair tool start and completion by call ID. Show elapsed time, named handoffs, tool details, and model timing and usage when available. Expand activity during execution and keep it available after completion and when a saved chat is reopened. Private model reasoning is never displayed.
+
+Cache the conversation list and recently visited threads in memory for the current authenticated session. Show cached content immediately, preserve drafts, deduplicate concurrent reads, and revalidate expired entries. Clear the cache when the authentication session changes; do not persist salary chats in browser storage. Invalidate deleted chats and prevent late requests from restoring evicted data. A chat's Delete action offers Undo; running chats must be stopped first. Deletion hides the conversation and its runs from normal reads while preserving durable records for restoration.
+
+Render interactive charts directly from each verified report snapshot using the shared `InsightChart`, `SelectField`, and anchored detail primitives. Support average/median comparison and individual pay or headcount measures, with highest/lowest/name sorting. Keep currencies separate, expose exact values on hover, keyboard focus, or pinned click/tap, and retain the exact-value table and source revision. Reuse this visualization on Open report with its fresh data. Do not invent historical series or statistics absent from the evidence.
+
+The prompt editor uses the workspace form controls and unsaved-change dialog. Use monospaced prompt text and a side-by-side review of the saved draft and published version, with stacked panels on narrow screens. Publish is a separate action after review.

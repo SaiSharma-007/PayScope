@@ -128,6 +128,7 @@ erDiagram
 | `id` | UUID | Primary key |
 | `user_id` | UUID | Foreign key to `hr_users.id` |
 | `title` | TEXT | Human-readable chat title |
+| `deleted_at` | TIMESTAMPTZ | Nullable; soft-deleted chats are hidden from history, admission, and owned run reads; cleared by Undo |
 | `next_turn_number` | BIGINT | Positive counter, default 1 |
 | `context_version` | BIGINT | Non-negative version of committed conversation state |
 | `agent_session_state` | JSONB | Complete serialized MAF sessions, keyed by logical agent identity |

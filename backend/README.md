@@ -10,6 +10,14 @@ Use [uv](https://docs.astral.sh/uv/) and an empty PostgreSQL database. Run these
 
 For a Supabase transaction-pooler URL on port `6543`, paste the database password into the URL and percent-encode any URL-reserved characters in it. The backend defaults to TLS for this connection.
 
+For a long-running local or hosted FastAPI process, prefer Supabase's session-pooler connection from the dashboard (port `5432`), which allows this service to reuse its database connections. Keep transaction mode (`6543`, application `NullPool`) for serverless deployments. Use TLS (`?ssl=require`) with either remote endpoint. Connection mode and region materially affect startup and event latency; the model's response time is only one part of a chat run. See [Supabase's SQLAlchemy connection guidance](https://supabase.com/kb/troubleshooting/using-sqlalchemy-with-supabase-FUqebT).
+
+Agent ownership has a separate Redis client with a three-second socket timeout and a five-second overall command deadline; cache reads retain their shorter fallback deadlines. Execution leases last 30 seconds and renewal starts alongside workflow setup. The stream uses one authorized snapshot query and local update notifications. Activity survives history reload and includes model usage, timing, handoffs, tool results, and final verification. No additional migration is required for these event payloads.
+
+Migration `0005` adds reversible chat deletion. Run `uv run --locked alembic upgrade head` before using the updated chat API. `DELETE /api/agent/conversations/{id}` hides an owned conversation and `POST /api/agent/conversations/{id}/restore` implements Undo. Both require CSRF. A queued or running response blocks deletion with 409; unknown or other-owner conversations return 404. Deleted conversations are excluded from history, new admission, and run reads. Durable records are retained for restoration; this is not permanent erasure.
+
+The UI caches recent conversations and drafts in memory for the signed-in session, with deduplicated reads and a 30-second freshness window. Signing out or changing session discards that cache. Verified report cards and Open report reuse the interactive chart controls for measure, sort order, exact values, and separate currencies.
+
 The API logs request IDs, route templates, status codes, and elapsed time to stderr. Match a response's `X-Request-ID` header to its log entries. The seed command logs its start and outcome to the same stream.
 
 The seed creates the `hr@payscope.example` account and fills in 10,000 fictional employees with localized names and annual salaries that vary by country and role. Re-running the seed preserves existing employees, salaries, and the account password. The report revision advances only when seeding inserts data used by reports.
@@ -133,3 +141,141 @@ uv run --locked python -m payscope.seed --equity apply
 Preview reports the proposed no-equity, award, allocation, and intentionally unconfigured counts. Apply inserts the same cohorts into untouched demo packages with recognized demo rules and skips existing elections, awards, and edited packages. Rerunning apply inserts only newly eligible records. Existing demo packages keep their effective dates and target components. A package first effective in 2026 contributes to the timeline starting in 2026.
 
 For a demo originally seeded with 2026-only packages, use `uv run --locked python -m payscope.seed --demo-history preview` and then `uv run --locked python -m payscope.seed --demo-history apply`. This explicit upgrade makes recognized, untouched legacy demo packages effective from 2022 and adds the fictional target bonus. It backfills earlier years for recognized seeded awards and preserves their recorded 2026 and later allocations. Edited packages and employees with manually created or edited awards are excluded. Guaranteed package costs stay the same.
+
+## Agent prompt catalog and conversation history
+
+Migration `0004` publishes Pay Analyst v1 and Answer Writer v1. The standard demo seed enables prompt management for `hr@payscope.example` and preserves existing prompt versions and account credentials. To grant the permission to another HR account, run this as the database administrator using the account's email address.
+
+```sql
+UPDATE app.hr_users
+SET manage_agent_prompts = true
+WHERE email = 'hr-admin@example.com';
+```
+
+The authentication response includes `user.manage_agent_prompts`. The server checks that permission for all catalog endpoints. Prompt mutations also require `X-CSRF-Token`.
+
+| Method and path | Use |
+| --- | --- |
+| `GET /api/admin/agent-prompts` | List the two agents, their published version, and draft metadata. |
+| `GET /api/admin/agent-prompts/{agent_key}` | Load a catalog entry with its draft body, if present. |
+| `GET /api/admin/agent-prompts/{agent_key}/versions?limit=20&before_version=3` | Page through published versions, newest first, using `next_before_version`. |
+| `GET /api/admin/agent-prompts/{agent_key}/versions/{version}` | Read a published prompt's exact body. |
+| `PUT /api/admin/agent-prompts/{agent_key}/draft` | Save an editable draft. |
+| `POST /api/admin/agent-prompts/{agent_key}/draft/restore` | Copy the selected published version into the draft. |
+| `POST /api/admin/agent-prompts/{agent_key}/publish` | Publish the draft as the next immutable version. |
+| `GET /api/agent/conversations?limit=20&offset=0` | List the signed-in user's chats. Use `next_offset` to request another page. |
+| `GET /api/agent/conversations/{conversation_id}?limit=20&before_turn=4` | Load an owned chat with its active run and recent turns. Use `next_before_turn` to request older turns. |
+
+The agent keys are `pay_analyst` and `answer_writer`. Save a draft with `{"body":"Updated instructions","change_note":"Clarify ranking","expected_revision":0}`. The response returns the current published version as `active`, the updated `draft`, and a new `edit_revision`. Publish with `{"expected_revision":1}`. To restore v1 after publishing v2, send `{"version":1,"expected_revision":2}` to the restore endpoint, review the draft, and publish using the returned revision. If another admin saved or published first, the response is `409 PROMPT_CHANGED` with `detail.current_revision`. Publishing without a draft returns `409 PROMPT_DRAFT_REQUIRED`.
+
+A prompt detail response after saving a draft contains both the active version and the draft.
+
+```json
+{
+  "agent_key": "pay_analyst",
+  "edit_revision": 1,
+  "active": {
+    "version": 1,
+    "author_id": null,
+    "author_name": null,
+    "published_by": null,
+    "published_at": "2026-11-20T12:00:00Z",
+    "change_note": "Initial prompt"
+  },
+  "draft": {
+    "author_id": "b3e4741e-6a33-49a0-bb3d-ce2bf333e692",
+    "author_name": "HR Manager",
+    "updated_at": "2026-11-20T12:05:00Z",
+    "change_note": "Clarify ranking",
+    "body": "Updated instructions"
+  }
+}
+```
+
+A conversation detail page has `id`, `title`, creation and update timestamps, nullable `active_run_id`, a `turns` array in chronological order, and nullable `next_before_turn`. A populated turn looks like this.
+
+```json
+{
+  "run_id": "d31c99d0-0dc6-4f78-9ae3-3e06ff095182",
+  "turn_number": 2,
+  "kind": "question",
+  "parent_run_id": null,
+  "status": "queued",
+  "messages": [{
+    "role": "user",
+    "text": "What is median Engineering pay in India?",
+    "structured_content": null,
+    "is_partial": false,
+    "created_at": "2026-11-20T12:00:00Z"
+  }]
+}
+```
+
+### Workflow integration
+
+The write operations in [`payscope.agents.runs`](src/payscope/agents/runs.py) take a fresh async session per operation and commit before returning. Use `admit_run` after authorization and capacity reservation, or replay by the same request key. It returns the run and a flag indicating whether it was newly created. It also saves the initial `accepted` event and both version numbers. Use `pinned_prompts` to load those exact bodies for execution. Handle `CONVERSATION_BUSY` using the active run ID carried by the exception. Conflicting reuse of a request key returns `IDEMPOTENCY_CONFLICT`.
+
+Claim and renew the run with its execution token and a bounded lease. Append events and record tool results with that token. Finalization uses the same run row lock as Stop. An earlier cancellation request wins and retains any committed partial answer and report. Replay returns persisted events in ascending sequence after the cursor.
+
+## Ask about pay runtime
+
+For NVIDIA NIM, set `AGENT_OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1` to select the Chat Completions connector. Set `AGENT_OPENAI_MODEL=nvidia/nemotron-3.5-bolt-e4b` and `AGENT_OPENAI_STRONG_MODEL=nvidia/nemotron-3.5-super-vl-120b-a12b`. Use the NVIDIA credential in `AGENT_OPENAI_API_KEY`. Bolt handles the analyst and writer by default. The analyst can escalate once when it returns invalid output or cannot resolve a prior report reference. Both attempts share the run limits, and the `model_escalated` event records the reason and model IDs.
+
+In addition to PostgreSQL, set `REDIS_URL`, `AGENT_OPENAI_API_KEY`, `AGENT_OPENAI_MODEL`, and an explicit positive `AGENT_USER_QUOTA`. `AGENT_GLOBAL_QUOTA` defaults to five. Keep the per-user limit at or below the global limit. Use a model that supports streaming, function calling, and structured outputs over the OpenAI Responses API. The pinned Microsoft Agent Framework packages run on Python 3.14. Deploy the route with at least 60 seconds for execution plus cleanup headroom. Preserve streaming and disable response buffering in any reverse proxy.
+
+The Pay Analyst receives the question, the available report tools, and bounded recent chat context with saved report settings. The Answer Writer receives aggregate report evidence. The backend validates and renders figures directly from that evidence. Requests with over 50 report groups ask HR to narrow the filters. Rankings use every group in the accepted report. The OpenAI Responses connector sets `store=false`.
+
+| Method and path | Behavior |
+| --- | --- |
+| `POST /api/agent/runs` | Send JSON with a question, a UUID in `Idempotency-Key`, the session cookie, and `X-CSRF-Token`. Optional `conversation_id` adds a turn to an existing chat. A linked turn also sends `kind` and `parent_run_id`. Successful admissions and idempotent replays return SSE. |
+| `GET /api/agent/runs/{run_id}/events?after={sequence}` | Replay events after the last seen sequence, then follow live events. The session must own the run. Idle connections receive `: keep-alive` comments. |
+| `POST /api/agent/runs/{run_id}/cancel` | With CSRF and the owning session, request Stop. Returns `run_id`, `status`, and `cancel_requested`. Read the terminal outcome from the SSE stream. |
+
+For example, send `{"question":"Which Engineering role in India has the highest median annual base pay in INR?"}`. On a lost creation response, resubmit the same body and idempotency key. To answer a clarification, send the selected currency as `question`, use `"kind":"clarification"`, and link the source run and conversation. A fresh retry sends the original question with a new idempotency key and `"kind":"retry"`, linked to a failed, interrupted, or cancelled run. A busy chat returns `409 CONVERSATION_BUSY` with `detail.run_id`. Capacity or Redis outages return `429` or `503` with `Retry-After`.
+
+Each SSE frame carries `id` equal to the sequence, `event` equal to the type, and one JSON `data` object. Store the last received sequence per run through reconnects. The first accepted frame looks like this.
+
+```text
+id: 1
+event: accepted
+data: {"schema_version":1,"event_id":"9b616ebb-796c-4606-bf11-48fe67655407","run_id":"d31c99d0-0dc6-4f78-9ae3-3e06ff095182","sequence":1,"timestamp":"2026-11-20T12:00:00+00:00","type":"accepted","payload":{"conversation_id":"598fd1c4-0da5-4633-b870-acfaac4a36be"}}
+
+```
+
+| Example stream after `accepted` | Payloads and UI behavior |
+| --- | --- |
+| `run_started` → `agent_started` → `tool_started` → `tool_completed` → `report_ready` → `agent_completed` → `handoff_started` → `agent_started` → `token` → `agent_completed` → `final` | `tool_started` carries `tool_name` and validated `arguments`. `tool_completed` carries a `status`, bounded `summary`, and `duration_ms`. Both share `call_id`. A request rejected before execution emits `tool_rejected` with a safe code. |
+| `token` | Append `{"text":"Engineer — highest median base pay of INR 900000.00."}`. Agent events include `agent_name`. |
+| `final` with `status: completed` | Replace the draft with `answer` and use the final `report` card. `answer_source` is `verified_writer` or `computed` for deterministic fallback. An empty report can complete without writer activity. |
+| `clarification` → `agent_completed` → `final` with `status: awaiting_clarification` | Example clarification is `{"field":"currency","question":"Which currency should I use?","choices":["INR","USD"]}`. The final payload repeats it under `clarification`; a saved report scope can also appear under `report_request`. |
+| `agent_completed` → `error` → `final` with `status: failed` | Example error is `{"code":"MODEL_PROVIDER_FAILED","message":"The model could not complete the request. Try again.","retryable":true}`. The final payload includes the same `error`. |
+| `final` with `status: cancelled` or `interrupted` | Example payload is `{"status":"interrupted","answer":null,"is_partial":true}`. Retain any partial answer and report included in the payload. |
+| Reconnect with `after=7` | Replay starts at sequence 8 and preserves the original IDs. If sequence 7 was final, the response ends when there is nothing left to replay. |
+
+**Open report** uses `GET /api/analytics/salary-summary` with the card's `filters`. Compare the returned revision with the stored `revision` and keep the chat card available for the original values. A report card looks like this.
+
+```json
+{
+  "revision": 12,
+  "currency_code": "INR",
+  "report_type": "annual_gross_base",
+  "filters": {"country_code":"IN","department_id":1,"group_by":"job_title","currency_code":"INR"},
+  "operation": "highest",
+  "metric": "median",
+  "ranking_evidence_ids": ["b3e4741e-6a33-49a0-bb3d-ce2bf333e692"],
+  "rows": [{
+    "evidence_id": "b3e4741e-6a33-49a0-bb3d-ce2bf333e692",
+    "group": "4",
+    "group_id": 4,
+    "group_name": "Engineer",
+    "currency_code": "INR",
+    "headcount": 9,
+    "minimum": "400000.00",
+    "maximum": "1200000.00",
+    "mean": "835000.00",
+    "median": "900000.00"
+  }]
+}
+```
+
+Run `uv run --locked pytest tests/integration/test_agent_streaming.py` with disposable PostgreSQL and Redis URLs. The tests use a streaming provider fixture and include an actual loopback HTTP connection. For a deployed smoke check, sign in and send the example question above with an unbuffered SSE client. Confirm the tool and answer events arrive before the terminal event, record the time to first activity and first answer text, and verify the figures via the report endpoint. [Microsoft Agent Framework OpenAI provider](https://learn.microsoft.com/en-us/agent-framework/agents/providers/openai/)

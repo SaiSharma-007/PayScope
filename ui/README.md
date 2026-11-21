@@ -12,6 +12,10 @@ The signed-in workspace has a collapsible sidebar and mobile navigation drawer. 
 
 In **Country comparison**, read the median and pay band on each country's row. Currency panels have separate scales. A panel with one eligible country still shows its pay distribution.
 
+In **Salary insights**, choose **Ask about pay** and try the India Engineering example. Expand **Report activity** to see the validated filters, then choose **Open report** to check the same annual base-pay figures. Reopen the conversation from its URL to see the saved answer. When the underlying salary data changes, the report shows a revision notice and the chat still shows its saved figures.
+
+Users with prompt-management permission can open **Admin → Agent prompts**, edit a draft, and compare it with the published text before publishing. To restore previous wording, select a version in history and copy it into a draft. [Configure the agent API](../backend/README.md#ask-about-pay-runtime)
+
 Compensation rules and employee compensation are live. HR can define custom fixed or percentage components, preview calculations, publish immutable versions, apply rules to matching employees, enter manual breakdowns, and override components with reasons. Employee saves require a reviewed preview and preserve directory position. Guaranteed costs and costs including target components are distinct; employee deductions and unconfigured equity are explained separately. Seeded employees use illustrative country packages preserving their original totals.
 
 Run the backend on port 8000, then run these commands from `ui/`.
@@ -26,5 +30,7 @@ Open `http://localhost:5173`. Vite proxies `/api` to the backend. The demo HR em
 `npm run lint` checks the source and `npm run build` produces `dist/`. Production hosting must serve the UI and `/api` from the same HTTPS origin and route UI deep links to `index.html`.
 
 Run `npx playwright install chromium` once, then `npm test` to start a test server on port 4176 and run the isolated browser fixtures. Set `PAYSCOPE_CHROME_PATH` to use an installed Chromium-based browser. The optional live test uses `PAYSCOPE_LIVE_API_URL`, `PAYSCOPE_LIVE_EMAIL`, `PAYSCOPE_LIVE_PASSWORD`, and `PAYSCOPE_LIVE_EMPLOYEE_ID`. Use an isolated database with recorded INR equity and a manual base-pay-only INR package for the fixture employee. The test saves a temporary package change and restores the original amount after verifying the refresh.
+
+Agent browser tests use port 4177. The optional `PAYSCOPE_TEST_AGENT_API` test expects a disposable backend on loopback with Redis, an enabled provider, and the fictional records from `seed_fixture` in [the backend agent integration tests](../backend/tests/integration/test_agent_streaming.py). Grant its owner account prompt-management access and start from v1. The test publishes v2 and changes one fictional salary.
 
 Visual tokens implement the [theme specification](../artifacts/design/DESIGN.md). Fonts are self-hosted. The theme follows the system preference until a light or dark choice is saved.

@@ -163,6 +163,8 @@ Each application event has `schema_version`, `event_id`, `run_id`, `sequence`, `
 | `tool_completed` | Match the call ID, update its status, and show duration and a bounded result summary |
 | `report_ready` | Supply validated aggregate rows, evidence IDs, report revision, and Open report settings |
 | `token` | Append user-visible answer text to the provisional response |
+| `model_completed` | Record model identity, duration, first meaningful update latency, and reported input/output token usage |
+| `verification_completed` | Show whether writer claims passed evidence checks or the verified computed summary was selected |
 | `clarification` | Show the question and supported choices, when available |
 | `error` | Explain the failure and whether an explicit retry can help |
 | `final` | Supply the authoritative response and exactly one terminal status |
@@ -170,6 +172,10 @@ Each application event has `schema_version`, `event_id`, `run_id`, `sequence`, `
 Terminal statuses are `completed`, `awaiting_clarification`, `unsupported`, `failed`, `cancelled`, and `interrupted`. A run produces one terminal event. An error is followed by a failed final event. Transport EOF without a terminal event leaves the UI in a reconnecting state while the run's outcome is checked. A persisted interrupted outcome can offer checkpoint resume as defined in the schema. Status text describes observable agent and tool execution. Internal model reasoning stays within the provider interaction.
 
 The UI opens the activity timeline while a run is active and allows expanding tool details. It keeps completed activity visible, preserves a reader's scroll position, and batches accessible announcements. Sequence numbers suppress duplicate events. The run ID prevents an old run from updating the current answer. Tool arguments are shown after validation, and completed report cards are rendered from structured events.
+
+The new-chat URL is adopted without closing the original POST stream or fetching the conversation again. Conversation history includes non-token activity events for each visible turn, so stages and tool results remain inspectable after reload. The composer remains editable while a run is active, with submission disabled until it ends.
+
+Execution ownership uses 30-second Redis and PostgreSQL leases. The ownership monitor starts immediately after the database claim, alongside workflow startup, and renews before checking session revocation or cancellation. It checks again after a three-second pause; database/network time contributes to the actual interval. Ownership fencing and terminal-state checks remain authoritative. SSE reads use a single authorized snapshot query for run state and events; local notifications wake readers after committed workflow updates, with a one-second polling fallback for other instances. Expired runs remain recoverable through persisted interruption and replay. Salary tools use the same revision-aware report cache as manual reports.
 
 ```mermaid
 sequenceDiagram
