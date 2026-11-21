@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowUpRight,
   ChartNoAxesCombined,
+  FileChartColumn,
   ChevronRight,
   LayoutDashboard,
   PanelLeft,
@@ -30,6 +31,7 @@ const pages = [
     label: 'Salary insights',
     icon: ChartNoAxesCombined,
   },
+  { path: '/saved-reports', label: 'Saved reports', icon: FileChartColumn },
   { path: '/activity', label: 'Activity', icon: Activity, preview: true },
 ]
 

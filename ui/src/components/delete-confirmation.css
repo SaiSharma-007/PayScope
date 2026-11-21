@@ -1,0 +1,15 @@
+.delete-confirmation { width: min(440px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 28px; border: 1px solid var(--divider); border-radius: 20px; background: var(--surface); color: var(--foreground); box-shadow: 0 24px 80px rgb(0 0 0 / .22); }
+.delete-confirmation::backdrop { background: rgb(10 6 20 / .42); }
+.delete-confirmation-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: var(--danger); margin-bottom: 20px; }
+.delete-confirmation h2 { font-size: 21px; line-height: 1.3; letter-spacing: -.025em; margin: 0 0 10px; }
+.delete-confirmation p { font-size: 13px; line-height: 1.7; margin: 0 0 16px; color: var(--muted); }
+.delete-confirmation-object { padding: 12px 14px; border: 1px solid var(--divider); border-radius: 10px; background: var(--surface-subtle); font-size: 14px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; margin-bottom: 16px; }
+.delete-confirmation .delete-confirmation-note { font-size: 12px; }
+.delete-confirmation .delete-confirmation-error { color: var(--danger); }
+.delete-confirmation-actions { display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--divider); padding-top: 20px; margin-top: 20px; }
+.delete-confirmation-actions .button { min-height: 42px; padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: none; }
+.delete-confirmation-actions .delete-confirmation-submit { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.delete-confirmation[data-kind='component'] .delete-confirmation-icon, .delete-confirmation[data-kind='vesting'] .delete-confirmation-icon, .delete-confirmation[data-kind='allocation'] .delete-confirmation-icon { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); color: var(--warning); }
+.delete-confirmation .button:active:not(:disabled) { transform: scale(.98); }
+.delete-confirmation .button:focus-visible:active { transform: none; }
+@media (max-width: 600px) { .delete-confirmation { padding: 22px; } .delete-confirmation-actions .button { min-height: 44px; flex: 1; } }

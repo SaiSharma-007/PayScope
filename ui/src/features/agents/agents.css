@@ -513,3 +513,14 @@
     transform: none;
   }
 }
+
+.agent-page > form, .agent-panel form { display: grid; gap: .75rem; }
+.agent-page label { display: grid; gap: .35rem; }
+.agent-page input, .agent-page select { min-width: 0; padding: .7rem; font: inherit; color: var(--foreground); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-field); }
+.agent-page dialog { width: min(32rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; color: var(--foreground); }
+.agent-page dialog::backdrop { background: rgb(0 0 0 / .4); }
+.agent-page article > article { padding-block: 1rem; border-bottom: 1px solid var(--divider); }
+
+.agent-page form textarea { font: inherit; min-height: 6rem; padding: .7rem; color: var(--foreground); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-field); }
+.saved-report-summary { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.agent-page .agent-panel > a { display: inline-block; margin: .5rem .75rem .5rem 0; }

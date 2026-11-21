@@ -272,3 +272,21 @@ Cache the conversation list and recently visited threads in memory for the curre
 Render interactive charts directly from each verified report snapshot using the shared `InsightChart`, `SelectField`, and anchored detail primitives. Support average/median comparison and individual pay or headcount measures, with highest/lowest/name sorting. Keep currencies separate, expose exact values on hover, keyboard focus, or pinned click/tap, and retain the exact-value table and source revision. Reuse this visualization on Open report with its fresh data. Do not invent historical series or statistics absent from the evidence.
 
 The prompt editor uses the workspace form controls and unsaved-change dialog. Use monospaced prompt text and a side-by-side review of the saved draft and published version, with stacked panels on narrow screens. Publish is a separate action after review.
+
+### Saved report library
+
+Saved reports are independent, owned snapshots copied from completed server-side report evidence. Deleting the source chat does not delete its saved reports. Preserve generation time, revision, answer summary, exact figures and chart preferences. Save once per source run; repeated saves return the existing snapshot. Metadata editing changes only title and description. Saved reports have their own Delete and Undo lifecycle. Reuse shared report charts and exact-value tables; Open current report reads fresh data separately. Search and type filtering use the canonical SelectField, and mutations retain form contents on errors. Plans live in `.codex/saved-reports-01-backend-and-storage.md` and `.codex/saved-reports-02-ui-and-verification.md`.
+
+### Chat and saved-report density
+
+The agent workspace uses a compact product variant of the workspace surfaces: 18 px chat/detail panel corners, 14 px report frames and 8–10 px action/control corners. Keep the global palette and Instrument Sans typography. Conversations have single-line titles with an end fade, a quiet adjacent Delete action and full-title previews on hover or keyboard focus. The report title and one right-aligned Open/Save/View toolbar precede the chart; actions never fall below the plot. Use neutral report surfaces rather than another large tinted panel.
+
+The bottom composer owns one bordered frame with the textarea and Send/Stop action integrated inside it. Keep its visible label accessible but visually quiet, preserve immediate keyboard submission and reserve pointer press feedback for pointer use. Mobile input text is 16 px and action targets are at least 44 px.
+
+Saved reports uses one aligned search/type/action bar, a two-column desktop library and a single mobile column. Card metadata and Delete share a separated footer. Report details use clear title/summary/date hierarchy, aligned source/current links and a separate destructive action. The save dialog places its primary/secondary actions in one footer. Use the shared theme tokens, reduced-motion behavior and canonical SelectField; no marketing hero motion, new fonts or theme replacement belong in these task-focused screens.
+
+Chat exchanges use a consistent spacing rhythm: 28 px between desktop turns, 20 px between user and assistant within an exchange, 8 px between assistant identity and content, and 20 px before the report card. Report padding is 20 px, with 16 px control/section separation. Mobile uses 24/16 px turn/exchange spacing and 16 px report padding. User bubble paragraphs have no extra margins. The composer is separated from the scroll area by 16 px on desktop and 12 px on mobile.
+
+### Removal confirmations
+
+All Delete and Remove actions use `useDeleteConfirmation` and `delete-confirmation.css`. Name the item and explain the actual consequence: chat deletion preserves saved reports; report deletion preserves the original chat; compensation component and equity row removal affects the current draft until publication or saving. Keep existing Undo for chats and reports. Use a native modal alert dialog with Cancel initially focused, Escape to cancel, focus restoration, a busy guard against duplicate requests, and inline errors that retain the confirmation for retry. Use contextual icons and labels, compact spacing, and full-width mobile footer actions. Draft removals use a warning icon; persisted deletions use the danger treatment.

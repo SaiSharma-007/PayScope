@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import SelectField from '../../components/SelectField'
 import InsightChart from '../workspace/InsightChart'
 import '../workspace/reports.css'
@@ -19,11 +19,12 @@ const columns = [
   ['Employees', (row) => row.headcount, 'count'],
 ]
 
-export default function ReportChart({ report, snapshot = true }) {
+export default function ReportChart({ report, snapshot = true, onViewChange }) {
   const id = useId()
   const headcount = report.report_type === 'workforce_headcount'
-  const [measure, setMeasure] = useState(report.metric === 'average' ? 'mean' : report.metric || 'comparison')
-  const [sort, setSort] = useState(report.operation === 'lowest' ? 'ascending' : 'descending')
+  const [measure, setMeasure] = useState(report.chart_view?.measure || (report.metric === 'average' ? 'mean' : report.metric || 'comparison'))
+  const [sort, setSort] = useState(report.chart_view?.sort || (report.operation === 'lowest' ? 'ascending' : 'descending'))
+  useEffect(() => { onViewChange?.({ measure, sort }) }, [measure, sort, onViewChange])
   if (!report.rows.length) return null
   const metric = measure === 'comparison' ? 'mean' : measure
   const series = measure === 'comparison'

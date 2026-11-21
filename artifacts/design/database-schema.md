@@ -302,3 +302,7 @@ The schema is a design proposal. Migration execution and MAF round-trip verifica
 ## Framework references
 
 MAF persists conversation sessions and workflow checkpoints for different purposes. This design uses PostgreSQL for both through application storage adapters. Checkpoint recovery depends on a compatible workflow and serialized state. [MAF conversation storage](https://learn.microsoft.com/en-us/agent-framework/concepts/agents/conversations/storage) · [MAF workflow checkpoints](https://learn.microsoft.com/en-us/agent-framework/workflows/checkpoints)
+
+### saved_reports
+
+Migration 0006 adds owner-scoped independent snapshots with UUID identity, source run/conversation identifiers, title, description, JSONB report and chart preferences, immutable answer summary, snapshot version, generation/saved timestamps and nullable deletion timestamp. `(user_id, source_run_id)` is unique. Only the owner reference is a foreign key; source deletion must not cascade into this library. Source availability is computed for navigation only, never needed to render copied evidence.

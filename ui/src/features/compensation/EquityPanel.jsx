@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Gem, Plus, Trash2 } from 'lucide-react'
+import { useDeleteConfirmation } from '../../components/useDeleteConfirmation'
 import SelectField from '../../components/SelectField'
 import Skeleton from '../../components/Skeleton'
 import { useWorkspaceReport } from '../workspace/useWorkspaceReport'
@@ -21,6 +22,7 @@ export default function EquityPanel({
   onDirty,
   onBusy,
 }) {
+  const { confirm, confirmation } = useDeleteConfirmation()
   const api = useCompensationApi()
   const [year, setYear] = useState(currentYear)
   const [editor, setEditor] = useState(null)
@@ -139,7 +141,8 @@ export default function EquityPanel({
     })
   }
   function removeRow(key, index) {
-    change({ [key]: draft[key].filter((_, position) => position !== index) })
+    const vesting = key === 'vesting'
+    confirm({ kind: vesting ? 'vesting' : 'allocation', title: vesting ? 'Remove this vesting row?' : 'Remove this annual allocation?', name: vesting ? `Vesting row ${index + 1} · ${draft[key][index].date || 'No date set'}` : `Annual allocation · ${draft[key][index].year || index + 1}`, description: vesting ? 'This scheduled vesting entry will be removed from the award draft.' : 'This annual cost allocation will be removed from the award draft. Missing allocations can leave CTC incomplete.', note: 'The saved award changes only when you save the draft.', actionLabel: vesting ? 'Remove vesting row' : 'Remove allocation' }, () => change({ [key]: draft[key].filter((_, position) => position !== index) }))
   }
 
   function closeEditor() {
@@ -211,6 +214,7 @@ export default function EquityPanel({
           event.preventDefault()
       }}
     >
+      {confirmation}
       <div className="comp-section-heading">
         <div>
           <h3 id="equity-heading" tabIndex={-1}>

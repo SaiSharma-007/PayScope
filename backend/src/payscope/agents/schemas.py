@@ -117,6 +117,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatTurn(BaseModel):
+    saved_report_id: UUID | None = None
     run_id: UUID
     turn_number: int
     kind: RunKind

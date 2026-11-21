@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from payscope.agents.saved import router as saved_reports_router
 from payscope.agents.api import router as agent_runs_router
 from payscope.agents.history import router as agent_history_router
 from payscope.agents.prompts import router as agent_prompts_router
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="PayScope", lifespan=lifespan)
 app.add_middleware(RequestLoggingMiddleware)
 api = APIRouter(prefix="/api")
+api.include_router(saved_reports_router)
 api.include_router(agent_history_router)
 api.include_router(agent_prompts_router)
 api.include_router(agent_runs_router)

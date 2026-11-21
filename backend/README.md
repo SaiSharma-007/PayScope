@@ -279,3 +279,9 @@ data: {"schema_version":1,"event_id":"9b616ebb-796c-4606-bf11-48fe67655407","run
 ```
 
 Run `uv run --locked pytest tests/integration/test_agent_streaming.py` with disposable PostgreSQL and Redis URLs. The tests use a streaming provider fixture and include an actual loopback HTTP connection. For a deployed smoke check, sign in and send the example question above with an unbuffered SSE client. Confirm the tool and answer events arrive before the terminal event, record the time to first activity and first answer text, and verify the figures via the report endpoint. [Microsoft Agent Framework OpenAI provider](https://learn.microsoft.com/en-us/agent-framework/agents/providers/openai/)
+
+## Saved reports
+
+Apply migration `0006` with `uv run --locked alembic upgrade head`. `/api/saved-reports` supports POST from `source_run_id`, required title, optional description and chart preferences; GET lists owned reports with `q`, `report_type` and `offset` filters. GET/PATCH/DELETE `/{id}` reads, edits metadata or reversibly deletes a report; POST `/{id}/restore` implements Undo. Mutations require CSRF. Figures are copied from completed persisted evidence, never accepted from the client. One snapshot per user/source run prevents duplicates. Snapshots remain available if the chat is deleted; their source identifiers intentionally do not cascade-delete records. Only metadata and deletion state can change.
+
+The optional `artifacts/verification/smoke_saved_reports.py` harness creates a fixture chat/report, verifies ownership, CSRF, duplicate saves, independent snapshots after chat deletion, metadata edits and Delete/Undo, then leaves its fixture records soft-deleted. It does not modify existing chats or employee data.

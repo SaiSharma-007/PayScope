@@ -22,6 +22,7 @@ import Rules from './features/compensation/Rules'
 import RuleEditor from './features/compensation/RuleEditor'
 
 const SalaryInsights = lazy(() => import('./features/workspace/SalaryInsights'))
+const SavedReports = lazy(() => import('./features/agents/SavedReports'))
 const AskPay = lazy(() => import('./features/agents/AskPay'))
 const BasePayReport = lazy(() => import('./features/agents/BasePayReport'))
 const PromptAdmin = lazy(() => import('./features/agents/PromptAdmin'))
@@ -58,9 +59,10 @@ function Pages() {
       '/insights/base-pay': 'Annual base pay',
       '/admin/agent-prompts': 'Agent prompts',
       '/activity': 'Activity',
+      '/saved-reports': 'Saved reports',
       '/rules': 'Compensation rules',
     }
-    document.title = `${titles[pathname] || (pathname.startsWith('/rules/') ? 'Compensation rule' : 'Page not found')} · PayScope`
+    document.title = `${titles[pathname] || (pathname.startsWith('/saved-reports/') ? 'Saved report' : pathname.startsWith('/rules/') ? 'Compensation rule' : 'Page not found')} · PayScope`
     window.scrollTo(0, 0)
     if (previousPath.current !== pathname) {
       const heading = document.querySelector('main h1')
@@ -77,6 +79,7 @@ function Pages() {
       {!pathname.startsWith('/rules') &&
         !pathname.startsWith('/insights/') &&
         !pathname.startsWith('/admin/') &&
+        !pathname.startsWith('/saved-reports') &&
         !['/employees', '/overview', '/insights', '/activity'].includes(
           pathname,
         ) && <Header />}
@@ -87,6 +90,8 @@ function Pages() {
           <Route element={<WorkspaceShell />}>
             <Route path="/employees" element={<Employees />} />
             <Route path="/overview" element={<Overview />} />
+            <Route path="/saved-reports" element={<Suspense fallback={<Feedback message="Opening saved reports…" />}><SavedReports /></Suspense>} />
+            <Route path="/saved-reports/:id" element={<Suspense fallback={<Feedback message="Opening saved report…" />}><SavedReports /></Suspense>} />
             <Route
               path="/insights"
               element={

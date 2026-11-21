@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react'
+import { useDeleteConfirmation } from '../../components/useDeleteConfirmation'
 import SelectField from '../../components/SelectField'
 import { FormField } from './Fields'
 import { errorsFor, newComponent } from './shared'
@@ -24,6 +25,7 @@ export default function ComponentEditor({
   error,
   disabled = false,
 }) {
+  const { confirm, confirmation } = useDeleteConfirmation()
   function change(index, patch) {
     onChange(
       components.map((component, position) =>
@@ -33,6 +35,7 @@ export default function ComponentEditor({
   }
   return (
     <section className="component-editor" aria-labelledby="components-title">
+      {confirmation}
       <div className="comp-section-heading">
         <div>
           <h2 id="components-title">Custom components</h2>
@@ -140,9 +143,7 @@ export default function ComponentEditor({
               type="button"
               className="text-link remove-component"
               disabled={disabled}
-              onClick={() =>
-                onChange(components.filter((_, position) => position !== index))
-              }
+              onClick={() => confirm({ kind: 'component', title: 'Remove this component?', name: component.label || `Component ${index + 1}`, description: 'This component will be removed from the rule you are editing.', note: 'The change takes effect when you publish. Existing employee packages keep their saved version.', actionLabel: 'Remove component' }, () => onChange(components.filter((_, position) => position !== index)))}
             >
               <Trash2 size={15} aria-hidden="true" />
               Remove component {index + 1}

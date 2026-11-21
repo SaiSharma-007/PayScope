@@ -11,10 +11,14 @@ import {
 import { request } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import { readEvents } from './stream'
+import { useDeleteConfirmation } from '../../components/useDeleteConfirmation'
 import Activity from './Activity'
+import ChatTitle from './ChatTitle'
+import SaveReport from './SaveReport'
 import ReportChart from './ReportChart'
 import { loadChat, saveChat } from './chatCache'
 import './agents.css'
+import './agent-polish.css'
 
 const chatsPath = '/agent/conversations'
 const runsPath = '/agent/runs'
@@ -30,7 +34,8 @@ const stages = {
   get_salary_summary: 'Running the salary report',
 }
 
-function ReportCard({ report, conversation }) {
+function ReportCard({ report, conversation, runId, completed, savedId }) {
+  const [chartView, setChartView] = useState(null)
   if (!report) return null
   const params = new URLSearchParams({
     ...report.filters,
@@ -48,10 +53,13 @@ function ReportCard({ report, conversation }) {
             .join(' · ')}
         </span>
       </div>
-      <Link to={`/insights/base-pay?${params}`}>
-        Open report <ArrowUpRight size={15} aria-hidden="true" />
-      </Link>
-      <ReportChart report={report} />
+      <div className="agent-report-toolbar">
+        <Link className="agent-report-link" to={`/insights/base-pay?${params}`}>
+          Open report <ArrowUpRight size={15} aria-hidden="true" />
+        </Link>
+        {completed && <SaveReport runId={runId} report={report} chartView={chartView} savedId={savedId} />}
+      </div>
+      <ReportChart report={report} onViewChange={setChartView} />
       {report.rows.length > 0 && (
         <details>
           <summary>View saved figures</summary>
@@ -438,6 +446,9 @@ function ChatThread({ id, onAccepted, onChanged }) {
                 {message.role === 'assistant' && <Activity events={turn.events || []} status={turn.status} />}
                 <p>{message.text || (message.role === 'assistant' ? 'This response ended before an answer was available.' : '')}</p>
                 <ReportCard
+                  runId={turn.run_id}
+                  savedId={turn.saved_report_id}
+                  completed={turn.status === 'completed'}
                   report={message.structured_content?.report}
                   conversation={id}
                 />
@@ -465,6 +476,8 @@ function ChatThread({ id, onAccepted, onChanged }) {
             {streaming && !answer && <p className="agent-working">{statusText}</p>}
             <p>{answer}</p>
             <ReportCard
+              runId={run}
+              completed={finalEvent?.payload.status === 'completed'}
               report={
                 finalEvent?.payload.report ||
                 (!finalEvent
@@ -529,7 +542,7 @@ function ChatThread({ id, onAccepted, onChanged }) {
           )
         }}
       >
-        <label htmlFor="pay-question">
+        <label className="sr-only" htmlFor="pay-question">
           {clarification ? 'Answer the clarification' : 'Your pay question'}
         </label>
         <div>
@@ -539,7 +552,7 @@ function ChatThread({ id, onAccepted, onChanged }) {
             id="pay-question"
             value={question}
             maxLength={2000}
-            rows={2}
+            rows={1}
             disabled={status === 'loading' || status === 'load-error'}
             placeholder="Ask about pay, compare teams, or follow up…"
             onKeyDown={(event) => {
@@ -563,6 +576,8 @@ function ChatThread({ id, onAccepted, onChanged }) {
             <button
               className="button primary"
               disabled={sendDisabled || !question.trim()}
+              aria-label="Ask"
+              title="Send question"
             >
               <ArrowUp size={17} aria-hidden="true" /> Ask
             </button>
@@ -575,6 +590,7 @@ function ChatThread({ id, onAccepted, onChanged }) {
 }
 
 export default function AskPay() {
+  const { confirm, confirmation } = useDeleteConfirmation()
   const [parameters, setParameters] = useSearchParams()
   const id = parameters.get('chat')
   const { expire, session, sessionCache } = useAuth()
@@ -623,6 +639,7 @@ export default function AskPay() {
     } catch (problem) {
       if (problem.status === 401) expire()
       setErr(problem.message)
+      throw problem
     } finally {
       setDeleting(null)
     }
@@ -632,6 +649,7 @@ export default function AskPay() {
   }
   return (
     <main id="main" className="page agent-page agent-chat-page">
+      {confirmation}
       <header className="agent-heading">
         <div>
           <Link to="/insights">Salary insights</Link>
@@ -676,13 +694,8 @@ export default function AskPay() {
           }}>Undo</button></p>}
           {history?.items.map((chat) => (
             <div className="agent-history-row" key={chat.id}>
-            <Link
-              to={`?chat=${chat.id}`}
-              aria-current={id === chat.id ? 'page' : undefined}
-            >
-              {chat.title}
-            </Link>
-            <button type="button" className="icon-button" aria-label={`Delete chat: ${chat.title}`} title="Delete chat" disabled={Boolean(deleting) || Boolean(chat.active_run_id)} onClick={() => removeChat(chat)}><Trash2 size={16} aria-hidden="true" /></button>
+            <ChatTitle chat={chat} selected={id === chat.id} />
+            <button type="button" className="icon-button" aria-label={`Delete chat: ${chat.title}`} title="Delete chat" disabled={Boolean(deleting) || Boolean(chat.active_run_id)} onClick={() => confirm({ kind: 'chat', title: 'Delete this conversation?', name: chat.title, description: 'This chat and its messages will be removed from your conversation list.', note: 'Saved reports from this chat stay in your library. You can undo this deletion.', actionLabel: 'Delete chat' }, () => removeChat(chat))}><Trash2 size={16} aria-hidden="true" /></button>
             </div>
           ))}
           {history?.next_offset != null && (

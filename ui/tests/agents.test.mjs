@@ -69,6 +69,45 @@ before(async () => {
   })
 })
 
+test('component removal confirms the draft change and restores focus on cancel', async () => {
+  const page = await browser.newPage()
+  const errors = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  try {
+    await page.route('**/__component-confirmation', (route) => route.fulfill({ contentType: 'text/html', body: `
+      <html><body><div id="root"></div><script type="module">
+      import RefreshRuntime from '/@react-refresh';
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+      </script><script type="module">
+      import React from '/node_modules/.vite/deps/react.js';
+      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
+      import ComponentEditor from '/src/features/compensation/ComponentEditor.jsx';
+      import { newComponent } from '/src/features/compensation/shared.js';
+      function Fixture() {
+        const [components, setComponents] = React.useState([{ ...newComponent(), label: 'Housing allowance' }]);
+        return React.createElement(ComponentEditor, { components, onChange: setComponents });
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Fixture));
+      </script></body></html>` }))
+    await page.goto(new URL('/__component-confirmation', origin).href)
+    await page.waitForTimeout(1000)
+    assert.deepEqual(errors, [])
+    const trigger = page.getByRole('button', { name: 'Remove component 1', exact: true })
+    await trigger.click()
+    const dialog = page.getByRole('alertdialog', { name: 'Remove this component?' })
+    await dialog.getByText('Housing allowance', { exact: true }).waitFor()
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert.equal(await trigger.evaluate((element) => element === document.activeElement), true)
+    await trigger.click()
+    await dialog.getByRole('button', { name: 'Remove component', exact: true }).click()
+    await trigger.waitFor({ state: 'hidden' })
+    await page.getByText('Start with basic pay, or add allowances, benefits, and bonuses.').waitFor()
+  } finally { await page.close() }
+})
+
 test(
   'live UI publishes a prompt and reconciles the India Engineering answer',
   {
@@ -448,9 +487,18 @@ test('cached chats preserve drafts, interactive figures, and delete with Undo', 
     await page.screenshot({ path: '../artifacts/verification/chat-interactive-report-mobile.png' })
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.getByRole('button', { name: `Delete chat: ${first.title}` }).click()
-    await page.getByRole('alert').filter({ hasText: 'Stop the active response before deleting this chat.' }).waitFor()
-    assert.equal(await page.getByRole('link', { name: first.title, exact: true }).count(), 1)
+    const chatDialog = page.getByRole('alertdialog', { name: 'Delete this conversation?' })
+    await chatDialog.waitFor()
+    assert.equal(await chatDialog.getByRole('button', { name: 'Cancel', exact: true }).evaluate((element) => element === document.activeElement), true)
+    await chatDialog.getByText('Saved reports from this chat stay in your library.', { exact: false }).waitFor()
+    await page.screenshot({ path: '../artifacts/verification/delete-chat-confirmation.png' })
+    await page.keyboard.press('Escape')
+    await chatDialog.waitFor({ state: 'hidden' })
+    assert.equal(removed, false)
     await page.getByRole('button', { name: `Delete chat: ${first.title}` }).click()
+    await chatDialog.getByRole('button', { name: 'Delete chat', exact: true }).click()
+    await chatDialog.getByRole('alert').filter({ hasText: 'Stop the active response before deleting this chat.' }).waitFor()
+    await chatDialog.getByRole('button', { name: 'Delete chat', exact: true }).click()
     await page.getByRole('button', { name: 'Undo', exact: true }).waitFor()
     assert.equal(await page.getByRole('link', { name: first.title, exact: true }).count(), 0)
     await page.getByText('Engineering salary comparison.', { exact: true }).waitFor({ state: 'hidden' })
@@ -662,4 +710,111 @@ test('Stop, a linked retry, and clarification stay in their own chat', async () 
   } finally {
     await page.close()
   }
+})
+
+
+test('save a report, reopen independently, edit, delete and undo', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+  let saved = null
+  let deletedReport = false
+  await page.route('**/api/**', (route) => {
+    const req = route.request()
+    const url = new URL(req.url())
+    const send = (json) => route.fulfill({ json })
+    if (url.pathname.endsWith('/auth/session')) return send(session(false))
+    if (url.pathname.endsWith('/conversations')) return send({ items: [{ ...summary, active_run_id: null }] })
+    if (url.pathname.endsWith(`/conversations/${chat}`)) return send({ ...summary, active_run_id: null, turns: [{ run_id: run, status: 'completed', messages: [{ role: 'assistant', text: 'Verified report.', structured_content: { report } }] }] })
+    if (url.pathname.endsWith('/saved-reports') && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      assert.equal(body.source_run_id, run)
+      assert.equal(req.headers()['x-csrf-token'], 'fixture')
+      assert.equal(body.report, undefined)
+      saved = { ...body, id: 'saved-one', report, summary: 'Verified report.', generated_at: time, saved_at: time, source_available: false, source_conversation_id: chat }
+      return send(saved)
+    }
+    if (url.pathname.endsWith('/restore')) { deletedReport = false; return route.fulfill({ status: 204 }) }
+    if (url.pathname.endsWith('/saved-one')) {
+      if (req.method() === 'DELETE') { deletedReport = true; return route.fulfill({ status: 204 }) }
+      if (req.method() === 'PATCH') { saved = { ...saved, ...req.postDataJSON() }; return send(saved) }
+      return deletedReport ? route.fulfill({ status: 404 }) : send(saved)
+    }
+    if (url.pathname.endsWith('/saved-reports')) return send({ items: deletedReport || !saved ? [] : [saved], next_offset: null })
+    return route.fulfill({ status: 404 })
+  })
+  try {
+    await page.goto(new URL(`/insights/ask?chat=${chat}`, origin).href)
+    await page.getByRole('button', { name: 'Save report', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Save report' })
+    await dialog.getByLabel('Title', { exact: true }).fill('Engineering report')
+    await dialog.getByLabel('Description').fill('Saved independently')
+    await dialog.getByRole('button', { name: 'Save report', exact: true }).click()
+    await page.getByRole('link', { name: 'Saved · View report' }).click()
+    await page.getByRole('heading', { name: 'Engineering report', exact: true }).waitFor()
+    await page.getByText('Original chat deleted', { exact: true }).waitFor()
+    await page.getByText('Edit title and description', { exact: true }).click()
+    await page.getByLabel('Title', { exact: true }).fill('Updated report')
+    await page.getByRole('button', { name: 'Save details' }).click()
+    await page.getByRole('heading', { name: 'Updated report', exact: true }).waitFor()
+    await page.getByText('Edit title and description', { exact: true }).click()
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.screenshot({ path: '../artifacts/verification/saved-report-desktop.png' })
+    await page.setViewportSize({ width: 390, height: 844 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await page.screenshot({ path: '../artifacts/verification/saved-report-mobile.png' })
+    await page.getByRole('button', { name: 'Delete report', exact: true }).click()
+    const reportDialog = page.getByRole('alertdialog', { name: 'Delete this saved report?' })
+    await reportDialog.getByText('The original chat is unaffected.', { exact: false }).waitFor()
+    await page.screenshot({ path: '../artifacts/verification/delete-report-confirmation-mobile.png' })
+    assert.equal(deletedReport, false)
+    await reportDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: 'Delete report', exact: true }).click()
+    await reportDialog.getByRole('button', { name: 'Delete report', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('heading', { name: 'Updated report', exact: true }).waitFor()
+    await page.getByRole('link', { name: 'Back to saved reports', exact: true }).click()
+    await page.getByRole('link', { name: 'Updated report', exact: true }).waitFor()
+    await page.screenshot({ path: '../artifacts/verification/saved-report-library-mobile.png' })
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.screenshot({ path: '../artifacts/verification/saved-report-library-desktop.png' })
+    for (const width of [320, 768, 1024]) {
+      await page.setViewportSize({ width, height: 900 })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Saved report layout at ${width}`)
+    }
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.screenshot({ path: '../artifacts/verification/saved-report-library-dark.png' })
+  } finally { await page.close() }
+})
+
+
+test('chat names fade on one line and reveal their full title on hover and focus', async () => {
+  const page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
+  const title = 'Across all countries, which has the lowest headcount including every employee?'
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/auth/session')) return route.fulfill({ json: session(false) })
+    if (path.endsWith('/conversations')) return route.fulfill({ json: { items: [{ id: chat, title, active_run_id: null }] } })
+    return route.fulfill({ status: 404 })
+  })
+  try {
+    await page.goto(new URL('/insights/ask', origin).href)
+    const link = page.getByRole('link', { name: title, exact: true })
+    await link.waitFor()
+    const text = link.locator('.agent-chat-title')
+    assert.equal(await text.evaluate((element) => getComputedStyle(element).whiteSpace), 'nowrap')
+    assert.notEqual(await text.evaluate((element) => getComputedStyle(element).maskImage), 'none')
+    assert.equal(await text.evaluate((element) => element.scrollWidth > element.clientWidth), true)
+    await link.hover()
+    const tooltip = page.getByRole('tooltip', { name: 'Conversation title' })
+    await tooltip.waitFor()
+    assert.equal(await tooltip.innerText(), title)
+    await page.screenshot({ path: '../artifacts/verification/chat-title-preview.png' })
+    await page.keyboard.press('Escape')
+    await tooltip.waitFor({ state: 'hidden' })
+    await page.mouse.move(1100, 850)
+    await page.keyboard.press('Tab')
+    await link.focus()
+    await tooltip.waitFor()
+    assert.equal(await tooltip.innerText(), title)
+  } finally { await page.close() }
 })

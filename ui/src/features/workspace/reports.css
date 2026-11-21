@@ -655,3 +655,6 @@
   align-items: center;
   flex-wrap: wrap;
 }
+
+/* Preview tooltips must not intercept actions underneath; pinned cards stay interactive. */
+.insight-float[role='tooltip'] { pointer-events: none; }

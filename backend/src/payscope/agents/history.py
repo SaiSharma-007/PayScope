@@ -18,6 +18,7 @@ from payscope.models import agent_conversations as conversations
 from payscope.models import agent_events as events
 from payscope.models import agent_messages as messages
 from payscope.models import agent_runs as runs
+from payscope.models import saved_reports
 
 router = APIRouter(prefix="/agent/conversations", tags=["Agent conversations"])
 PageSize = Annotated[int, Query(ge=1, le=100)]
@@ -140,6 +141,9 @@ async def conversation_detail(
     chat_turns = list(by_turn.values())
     visible_turns = chat_turns[:limit]
     if visible_turns:
+        saved = dict((await database.execute(sa.select(saved_reports.c.source_run_id, saved_reports.c.id).where(saved_reports.c.user_id == session.user_id, saved_reports.c.deleted_at.is_(None), saved_reports.c.source_run_id.in_([turn.run_id for turn in visible_turns])))).tuples().all())
+        for turn in visible_turns:
+            turn.saved_report_id = saved.get(turn.run_id)
         activity = await database.execute(
             events.select()
             .where(
