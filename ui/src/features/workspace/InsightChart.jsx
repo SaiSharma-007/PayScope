@@ -96,9 +96,11 @@ function HorizontalPlot({
   isActive,
   markProps,
   onPin,
+  valueMode = 'money',
 }) {
   const range = type === 'range' || type === 'country'
   const share = type === 'shares'
+  const summary = type === 'summary'
   const low = range
     ? Math.min(...rows.map((row) => Number(row.percentiles.p10)))
     : 0
@@ -106,7 +108,7 @@ function HorizontalPlot({
     ? Math.max(...rows.map((row) => Number(row.percentiles.p90)))
     : share
       ? 100
-      : Math.max(
+      : summary ? Math.max(...rows.flatMap((row) => series.map(([key]) => Number(row[key] ?? 0)))) : Math.max(
           ...rows.map((row) =>
             Number(type === 'mix' ? row.amount : row.target_ctc),
           ),
@@ -116,9 +118,9 @@ function HorizontalPlot({
   const fraction = (value) => (Number(value) - min) / (max - min)
   return (
     <div className="insight-horizontal" data-plot={type}>
-      <Axis min={min} max={max} currency={currency} share={share} />
+      <Axis min={min} max={max} currency={valueMode === 'count' ? 'Employees' : currency} share={share} />
       {rows.map((row) => {
-        const value = range
+        const value = summary ? row[series[0][0]] : range
           ? row.percentiles.p50
           : share
             ? difference(row.payroll_share, row.headcount_share)
@@ -136,7 +138,9 @@ function HorizontalPlot({
           >
             <span className="insight-mark-label">{row.group_name}</span>
             <span className="insight-track" aria-hidden="true">
-              {range ? (
+              {summary && series.length === 1 ? (
+                <span className="insight-summary-bar" data-series={series[0][0]} style={{ inlineSize: width(fraction(value)) }} />
+              ) : range ? (
                 <BoxPlot row={row} fraction={fraction} />
               ) : type === 'mix' ? (
                 <span className="insight-stack">
@@ -164,7 +168,7 @@ function HorizontalPlot({
             </span>
             <strong>
               {type === 'paired' && value != null && '+'}
-              {formatValue(value, share ? 'points' : 'money', currency)}
+              {formatValue(value, share ? 'points' : valueMode, currency)}
             </strong>
           </button>
         )
@@ -275,6 +279,7 @@ export default function InsightChart({
   year,
   onDrill,
   drillLabel,
+  valueMode = 'money',
 }) {
   const details = useInsightDetails()
   const plotRows =
@@ -300,6 +305,7 @@ export default function InsightChart({
     isActive: (key) => details.entry?.key === key,
     markProps: details.trigger,
     onPin: details.pin,
+    valueMode,
   }
   return (
     <div className="insight-chart" role="group" aria-label="Interactive chart">

@@ -264,6 +264,14 @@
   background-size: 25% 100%;
   border-inline-end: 1px solid var(--divider);
 }
+.insight-summary-bar {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 25%;
+  block-size: 50%;
+  border-radius: 4px;
+  background: var(--range);
+}
 
 .insight-whisker, .insight-box, .insight-median { position: absolute; inset-block-start: 50%; }
 .insight-whisker {
@@ -640,4 +648,10 @@
   .insight-equity-point[data-partial='true'] { background: Canvas; border-color: ButtonText; }
   .insight-view-grid a[aria-current='page'], .insight-mark[data-active='true'],
   .insight-year[data-active='true'], .insight-tile[data-active='true'] { border-color: Highlight; }
+}
+.insight-heading-actions {
+  display: flex;
+  gap: .6rem;
+  align-items: center;
+  flex-wrap: wrap;
 }
