@@ -25,7 +25,7 @@ export default function SignIn() {
   const emailRef = useRef(null)
   const passwordRef = useRef(null)
   const submitting = useRef(false)
-  if (auth.session) return <Navigate to="/employees" replace />
+  if (auth.session) return <Navigate to="/overview" replace />
 
   async function submit(event) {
     event.preventDefault()
@@ -48,7 +48,7 @@ export default function SignIn() {
     setBusy(true)
     try {
       await auth.signIn(email, password)
-      navigate('/employees', { replace: true })
+      navigate('/overview', { replace: true })
     } catch (error) {
       const message = error.status === 401
         ? { title: 'Email or password is incorrect', description: 'Check both fields and try again.' }
@@ -85,7 +85,7 @@ export default function SignIn() {
           </CardHeader>
           <CardContent>
             {location.state?.expired && (
-              <Alert role="status"><AlertDescription>Sign in to continue to Employees.</AlertDescription></Alert>
+              <Alert role="status"><AlertDescription>Sign in to continue to your workspace.</AlertDescription></Alert>
             )}
             <form onSubmit={submit} noValidate aria-busy={busy}>
               <FieldGroup>

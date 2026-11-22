@@ -23,6 +23,11 @@ import './agents.css'
 import './agent-polish.css'
 
 export default function SavedReports() {
+  const { key } = useLocation()
+  return <SavedReportsView key={key} />
+}
+
+function SavedReportsView() {
   const { confirm, confirmation } = useDeleteConfirmation()
   const { id } = useParams()
   const [params, setParams] = useSearchParams()

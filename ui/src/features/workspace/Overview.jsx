@@ -7,6 +7,7 @@ import { Table, TableBody, TableCaption, TableCell, TableRow } from '@/component
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ErrorSummary } from '../compensation/Fields'
+import { InsightHelp } from './InsightHelp'
 import { useWorkspaceReport } from './useWorkspaceReport'
 import './overview.css'
 
@@ -35,7 +36,12 @@ function OverviewSummary({ data, loading }) {
       <CardContent className="overview-summary-layout">
         <div className="overview-coverage">
           <strong>{loading ? <Skeleton className="h-16 w-32" /> : data.employees ? percent.format(covered / data.employees) : '—'}</strong>
-          <h2>{!loading && !data.employees ? 'No pay records yet' : 'Base pay on file'}</h2>
+          <div className="overview-help-heading">
+            <h2>{!loading && !data.employees ? 'No pay records yet' : 'Base pay on file'}</h2>
+            <InsightHelp label="Base pay on file">
+              The share of employees with basic pay in a compensation package or a standalone salary record.
+            </InsightHelp>
+          </div>
           {!loading && <p>{number.format(covered)} of {number.format(data.employees)} employees</p>}
         </div>
         <div>
@@ -59,7 +65,12 @@ function CountryCoverage({ countries, loading }) {
     <section className="panel overview-country-panel" aria-labelledby="overview-countries">
       <header className="overview-panel-heading">
         <div>
-          <h2 id="overview-countries">Pay coverage by country</h2>
+          <div className="overview-help-heading">
+            <h2 id="overview-countries">Pay coverage by country</h2>
+            <InsightHelp label="Pay coverage by country">
+              People compares employee counts across countries. Share shows the percentage in each pay category within that country.
+            </InsightHelp>
+          </div>
           <p>{scale === 'people' ? 'Compare headcount and pay records across countries.' : 'Compare the share of employees in each pay category.'}</p>
         </div>
         <ToggleGroup type="single" value={scale} onValueChange={next => { if (next) setScale(next) }}
@@ -115,7 +126,12 @@ function OverviewActions({ data }) {
   return (
     <Card className="overview-attention" data-attention={missing}>
       <CardHeader>
-            <h2>Needs attention</h2>
+            <div className="overview-help-heading">
+              <h2>Needs attention</h2>
+              <InsightHelp label="Needs attention">
+                These employees have neither basic pay in a compensation package nor a standalone salary record.
+              </InsightHelp>
+            </div>
             <p><strong>{number.format(data.missing_pay)}</strong> {data.missing_pay === 1 ? 'employee needs' : 'employees need'} a base pay record.</p>
             <div className="overview-followup">
               <Button asChild className="overview-review">

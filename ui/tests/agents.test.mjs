@@ -69,6 +69,37 @@ before(async () => {
   })
 })
 
+test('sign-in opens Overview and the floating pay shortcut can be opened or dismissed', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+  try {
+    await page.route('**/api/**', (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/auth/sign-in') return route.fulfill({ json: session(false) })
+      if (path === '/api/agent/conversations') return route.fulfill({ json: { items: [] } })
+      return route.fulfill({ status: path === '/api/auth/session' ? 401 : 404 })
+    })
+    await page.goto(new URL('/sign-in', origin).href)
+    await page.getByLabel('Password', { exact: true }).fill('fixture-password')
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await page.waitForURL('**/overview')
+    const shortcut = page.locator('.workspace-ask')
+    await shortcut.getByRole('link', { name: 'Ask about pay', exact: true }).click()
+    await page.getByRole('heading', { name: 'Ask about pay', exact: true }).waitFor()
+    assert.equal(await shortcut.count(), 0)
+    await page.getByRole('link', { name: 'Salary insights', exact: true }).click()
+    await shortcut.getByRole('button', { name: 'Dismiss Ask about pay shortcut' }).click()
+    assert.equal(await page.getByRole('button', { name: 'Toggle navigation' }).evaluate(
+      (element) => element === document.activeElement,
+    ), true)
+    await page.getByRole('button', { name: 'Toggle navigation' }).click()
+    await page.getByRole('dialog').getByRole('link', { name: 'Employees', exact: true }).click()
+    await page.waitForURL('**/employees')
+    assert.equal(await shortcut.count(), 0)
+  } finally {
+    await page.close()
+  }
+})
+
 test('component removal confirms the draft change and restores focus on cancel', async () => {
   const page = await browser.newPage()
   const errors = []
@@ -550,6 +581,12 @@ test('cached chats preserve drafts, interactive figures, and delete with Undo', 
     await page.getByRole('link', { name: first.title, exact: true }).click()
     await page.getByText('Engineering salary comparison.', { exact: true }).waitFor()
     assert.equal(counts.get(chat), 2, 'Deleted chat snapshots are evicted from memory')
+    await page.getByRole('button', { name: `Delete chat: ${first.title}` }).click()
+    await chatDialog.getByRole('button', { name: 'Delete chat', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).waitFor()
+    await page.getByRole('link', { name: other.title, exact: true }).click()
+    await page.getByText('Country salary comparison.', { exact: true }).waitFor()
+    assert.equal(await page.getByText('Chat deleted.', { exact: false }).count(), 0)
   } finally {
     await page.close()
   }
@@ -836,6 +873,13 @@ test('save a report, reopen independently, edit, delete and undo', async () => {
     await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.screenshot({ path: '../artifacts/verification/saved-report-library-dark.png' })
+    await page.getByRole('link', { name: 'Updated report', exact: true }).click()
+    await page.getByRole('button', { name: 'Delete report', exact: true }).click()
+    await reportDialog.getByRole('button', { name: 'Delete report', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).waitFor()
+    await page.getByRole('link', { name: 'Back to saved reports', exact: true }).click()
+    await page.getByText('No reports match these filters.').waitFor()
+    assert.equal(await page.getByText('Report deleted.', { exact: true }).count(), 0)
   } finally { await page.close() }
 })
 

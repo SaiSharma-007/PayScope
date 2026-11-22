@@ -698,6 +698,10 @@ export default function AskPay() {
   const [adopted, setAdopted] = useState(null)
   const [deleted, setDeleted] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  if (deleted && deleted.viewId !== id) {
+    // Deleting the open chat takes the user to the empty chat view.
+    setDeleted(deleted.viewId === deleted.id && id === null ? { ...deleted, viewId: null } : null)
+  }
   useEffect(() => {
     const controller = new AbortController()
     loadChat(sessionCache, chatsPath)
@@ -728,11 +732,11 @@ export default function AskPay() {
       setHistory(next)
       saveChat(sessionCache, chatsPath, next)
       setRefresh((value) => value + 1)
-      setDeleted(chat)
       if (id === chat.id) {
         setNewChat((value) => value + 1)
         setParameters({}, { replace: true })
       }
+      setDeleted({ id: chat.id, viewId: id })
     } catch (problem) {
       if (problem.status === 401) expire()
       setErr(problem.message)
@@ -756,6 +760,7 @@ export default function AskPay() {
           size="lg"
           className="agent-new-chat"
           onClick={() => {
+            setDeleted(null)
             setNewChat((value) => value + 1)
             select(null)
           }}

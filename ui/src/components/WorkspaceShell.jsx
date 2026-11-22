@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
@@ -8,9 +8,11 @@ import {
   ChevronRight,
   House,
   Layers,
+  MessageSquare,
   PanelLeft,
   SlidersHorizontal,
   Users,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../features/auth/useAuth'
 import { Button } from './ui/button'
@@ -109,6 +111,9 @@ export default function WorkspaceShell() {
     () => matchMedia('(max-width: 1100px)').matches,
   )
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [askShortcutDismissed, setAskShortcutDismissed] = useState(false)
+  const navigationToggle = useRef(null)
+  const showAskShortcut = !askShortcutDismissed && pathname !== '/insights/ask'
   useEffect(() => {
     const media = matchMedia('(max-width: 1100px)')
     function resize(event) {
@@ -125,6 +130,7 @@ export default function WorkspaceShell() {
     (pathname === '/activity' ? 'Activity' : pathname === '/admin/agent-prompts' ? 'Prompt catalog' : pathname.startsWith('/admin/agent-runs') ? 'Agent observability' : 'Workspace')
   const mobileNavigationToggle = (
     <Button
+      ref={navigationToggle}
       variant="secondary"
       size="icon-lg"
       className="workspace-toggle"
@@ -136,7 +142,7 @@ export default function WorkspaceShell() {
   )
 
   return (
-    <div className={collapsed ? 'workspace-shell sidebar-collapsed' : 'workspace-shell'}>
+    <div className={`workspace-shell${collapsed ? ' sidebar-collapsed' : ''}${showAskShortcut ? ' has-workspace-ask' : ''}`}>
       <aside id="workspace-sidebar" className="workspace-sidebar">
         <Navigation />
       </aside>
@@ -153,6 +159,7 @@ export default function WorkspaceShell() {
               </Sheet>
             ) : (
               <Button
+                ref={navigationToggle}
                 variant="secondary"
                 size="icon-lg"
                 className="workspace-toggle"
@@ -188,6 +195,28 @@ export default function WorkspaceShell() {
         </header>
         <Outlet />
       </div>
+      {showAskShortcut && (
+        <div className="workspace-ask">
+          <Button asChild className="workspace-ask-link">
+            <Link to="/insights/ask">
+              <MessageSquare aria-hidden="true" />
+              Ask about pay
+            </Link>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Dismiss Ask about pay shortcut"
+            onClick={() => {
+              setAskShortcutDismissed(true)
+              navigationToggle.current?.focus()
+            }}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

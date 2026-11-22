@@ -247,7 +247,7 @@ export default function Landing() {
   const auth = useAuth()
   const [traceOpen, setTraceOpen] = useState(false)
   const [animate, setAnimate] = useState(false)
-  const destination = auth.session ? '/employees' : '/sign-in'
+  const destination = auth.session ? '/overview' : '/sign-in'
 
   return (
     <div className="payscope-landing">

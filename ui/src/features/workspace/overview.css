@@ -71,7 +71,9 @@
   font-weight: 650;
 }
 .overview-coverage > strong { display: block; font-size: clamp(3rem, 7vw, 6rem); font-weight: 750; line-height: .95; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-.overview-coverage h2 { margin-top: 8px; font-size: 1.2rem; }
+.overview-help-heading { display: flex; align-items: center; gap: 6px; }
+.overview-coverage .overview-help-heading { margin-top: 8px; }
+.overview-coverage h2 { font-size: 1.2rem; }
 .overview-coverage p, .overview-panel-heading p, .overview-chart-key { color: var(--overview-copy); }
 .overview-summary-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; }
 .overview-summary-counts dt { font-size: .8rem; color: var(--overview-copy); }

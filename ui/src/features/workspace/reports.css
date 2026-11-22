@@ -458,55 +458,12 @@
   gap: 4px;
 }
 
-.insight-help, .insight-float-close {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  inline-size: 26px;
-  block-size: 26px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  vertical-align: middle;
-}
-
-.insight-help:is(:focus-visible, [aria-expanded='true']), .insight-float-close:is(:focus-visible, :hover) {
-  color: var(--primary);
-  background: var(--surface-subtle);
-  border-color: var(--divider);
-}
-
 .insight-select-help { position: relative; min-inline-size: 0; }
 .insight-select-help > .insight-help { position: absolute; top: -3px; inset-inline-end: 0; }
-.insight-float[popover] {
-  position: fixed;
-  inset: auto;
-  margin: 0;
-  box-sizing: border-box;
-  inline-size: max-content;
-  max-inline-size: min(24rem, calc(100vw - 20px));
-  padding: 12px;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--foreground);
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--shadow) 35%, transparent);
-  font: 400 13px/1.45 var(--font-sans);
-  text-align: start;
-  overflow-wrap: anywhere;
-}
-
-.insight-float[role='region'] { padding-inline-end: 36px; }
 .insight-float .insight-detail { margin: 0; padding: 0; border: 0; background: transparent; }
 .insight-float .insight-detail-heading { align-items: flex-start; flex-wrap: wrap; }
 .insight-float .insight-detail-series { margin-block: 6px 3px; }
 .insight-float .insight-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.insight-float-close { position: absolute; inset: 5px 5px auto auto; }
-.insight-help-copy { display: block; margin-block-start: 4px; max-inline-size: 19rem; }
 @media (pointer: fine) {
   .insight-primary-fields .comp-field > .insight-defined { block-size: 17px; align-content: center; }
 }
@@ -566,7 +523,6 @@
 @media (hover: hover) and (pointer: fine) {
   .insight-view-grid a:hover { background: var(--surface); }
   .insight-text-button:hover { text-decoration: underline; }
-  .insight-help:hover { background: var(--surface-subtle); color: var(--primary); }
 }
 
 @media (max-width: 930px) {
@@ -621,9 +577,7 @@
 
 @media (pointer: coarse) {
   .insight-primary-fields input { font-size: 16px; }
-  .insight-help, .insight-float-close { inline-size: 44px; block-size: 44px; }
   .insight-select-help > .insight-help { top: -11px; }
-  .insight-float[role='region'] { padding-inline-end: 48px; }
 }
 
 @media (max-width: 480px) {

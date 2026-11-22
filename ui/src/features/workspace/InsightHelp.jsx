@@ -1,6 +1,7 @@
 import { Info, X } from 'lucide-react'
 import { useLayoutEffect, useRef } from 'react'
 import { useInsightDetails } from './useInsightDetails'
+import './insight-help.css'
 
 export function InsightCard({ details, label, children, as: Element = 'div' }) {
   const card = useRef(null)

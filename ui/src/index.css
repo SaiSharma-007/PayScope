@@ -1036,6 +1036,44 @@ h3 {
 .workspace-body {
   min-width: 0;
 }
+.has-workspace-ask .workspace-body {
+  padding-block-end: calc(76px + env(safe-area-inset-bottom));
+}
+.workspace-ask {
+  position: fixed;
+  inset-inline-end: max(16px, env(safe-area-inset-right));
+  inset-block-end: max(16px, env(safe-area-inset-bottom));
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--rail-seam);
+  border-radius: 999px;
+  background: var(--rail-raised);
+  box-shadow: var(--rail-tile-shadow);
+}
+.workspace-ask [data-slot='button'] {
+  min-block-size: 44px;
+  min-inline-size: 44px;
+  border-radius: 999px;
+}
+.workspace-ask .workspace-ask-link {
+  gap: 8px;
+  padding-inline: 14px;
+  color: var(--primary);
+  background: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .workspace-ask .workspace-ask-link:hover {
+    background: var(--rail-recess);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-ask [data-slot='button'] {
+    transition: none;
+  }
+}
 .workspace-topbar {
   position: sticky;
   top: 0;

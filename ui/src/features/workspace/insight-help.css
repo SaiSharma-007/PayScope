@@ -1,0 +1,52 @@
+.insight-help, .insight-float-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: 26px;
+  block-size: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.insight-help:is(:focus-visible, [aria-expanded='true']), .insight-float-close:is(:focus-visible, :hover) {
+  color: var(--primary);
+  background: var(--surface-subtle);
+  border-color: var(--divider);
+}
+
+.insight-float[popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  inline-size: max-content;
+  max-inline-size: min(24rem, calc(100vw - 20px));
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--shadow) 35%, transparent);
+  font: 400 13px/1.45 var(--font-sans);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.insight-float[role='region'] { padding-inline-end: 36px; }
+.insight-float-close { position: absolute; inset: 5px 5px auto auto; }
+.insight-help-copy { display: block; margin-block-start: 4px; max-inline-size: 19rem; }
+
+@media (hover: hover) and (pointer: fine) {
+  .insight-help:hover { background: var(--surface-subtle); color: var(--primary); }
+}
+
+@media (pointer: coarse) {
+  .insight-help, .insight-float-close { inline-size: 44px; block-size: 44px; }
+  .insight-float[role='region'] { padding-inline-end: 48px; }
+}
