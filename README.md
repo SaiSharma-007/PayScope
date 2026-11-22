@@ -2,6 +2,10 @@
 
 PayScope is a salary management and compensation analytics workspace for HR teams. It was built for the Incubyte engineering assessment and includes a fictional demo of 10,000 employees. The core workflow is to find an employee, review or update their compensation, and verify how recorded pay appears in a report.
 
+**[Open the live PayScope demo](https://payscope.saisharma.com/)** · [Reviewer walkthrough](#reviewer-walkthrough) · [Run locally](#run-locally)
+
+![PayScope Workforce overview in dark mode, showing base-pay coverage, missing records, and the country breakdown](artifacts/verification/workforce-overview-desktop.png)
+
 ## Features
 
 | Area | What you can do |
@@ -68,6 +72,10 @@ In `backend/.env`, configure `REDIS_URL`, `AGENT_OPENAI_API_KEY`, `AGENT_OPENAI_
 2. **Read a report.** In Salary insights, choose Pay distribution or Headcount vs. payroll and set a currency. Focus or select a mark to inspect it, then check the numbers under **Exact values**. Try Payroll concentration to drill from countries to departments or roles.
 3. **Verify an agent answer.** If the agent is configured, ask “Which Engineering role in India has the highest median annual base pay in INR?” Follow Report activity, then open the source report and inspect the figures.
 4. **Save the evidence.** Save the completed report and reopen it from Saved reports. Compare the stored revision with **Open current report** when the underlying data changes.
+
+![Ask about pay with an engineering salary comparison and its source report open alongside the conversation](artifacts/verification/chat-interactive-report.png)
+
+Both screenshots show fictional demo data.
 
 ## Architecture
 
