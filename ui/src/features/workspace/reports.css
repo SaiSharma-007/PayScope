@@ -658,3 +658,99 @@
 
 /* Preview tooltips must not intercept actions underneath; pinned cards stay interactive. */
 .insight-float[role='tooltip'] { pointer-events: none; }
+
+/* Porcelain depth lives on the plot and its marks. Data geometry stays in the renderer. */
+.salary-insights {
+  --plot-recess: color-mix(in srgb, var(--surface-subtle) 64%, var(--surface));
+  --plot-glint: color-mix(in srgb, var(--surface) 65%, var(--foreground) 35%);
+  --plot-shadow: color-mix(in srgb, var(--shadow) 25%, transparent);
+  --insight-shelf-face: linear-gradient(155deg, var(--surface), var(--surface-subtle));
+  --insight-shelf-shadow: var(--shadow-panel);
+}
+[data-theme='dark'] .salary-insights {
+  --plot-recess: color-mix(in srgb, var(--canvas) 74%, var(--surface));
+  --plot-glint: color-mix(in srgb, var(--foreground) 46%, transparent);
+  --plot-shadow: color-mix(in srgb, var(--shadow) 78%, transparent);
+  --insight-shelf-face: linear-gradient(155deg,
+    color-mix(in srgb, var(--surface-subtle) 93%, var(--foreground)), var(--surface));
+  --insight-shelf-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 19%, transparent),
+    0 9px 24px -5px var(--plot-shadow);
+}
+.salary-insights .insight-controls {
+  border: 0;
+  background: var(--insight-shelf-face);
+  box-shadow: var(--insight-shelf-shadow);
+}
+.salary-insights .insight-panel[data-slot='card'] { background: var(--surface); box-shadow: var(--shadow-panel); }
+.salary-insights .insight-heading-actions [data-slot='button'] {
+  min-height: 44px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-control);
+}
+.salary-insights .insight-view-grid a[aria-current='page'] {
+  box-shadow: inset 0 2px 5px var(--plot-shadow);
+}
+.salary-insights :is(.insight-horizontal, .insight-timeline-frame, .insight-treemap) {
+  border-radius: var(--radius-inset);
+  background: var(--plot-recess);
+  box-shadow: inset 0 2px 6px var(--plot-shadow);
+}
+.salary-insights .insight-horizontal { padding: 9px; }
+.salary-insights .insight-box,
+.salary-insights .insight-legend [data-series='box'] {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--range) 72%, var(--plot-glint)), var(--range));
+  box-shadow: inset 0 1px var(--plot-glint), 0 2px 4px var(--plot-shadow);
+}
+.salary-insights .insight-median {
+  background: conic-gradient(from 45deg, var(--median), color-mix(in srgb, var(--median) 65%, var(--shadow)), var(--median), color-mix(in srgb, var(--median) 72%, var(--foreground)), var(--median));
+}
+.salary-insights :is(.insight-stack > span, .insight-endpoint, .insight-equity-point, .insight-tile) {
+  box-shadow: inset 0 1px var(--plot-glint), 0 2px 4px var(--plot-shadow);
+}
+.salary-insights .insight-tile[data-active='true'] { outline: 2px solid var(--focus); outline-offset: -3px; }
+.salary-insights .insight-tile[data-tone] { background: color-mix(in srgb, var(--range) 23%, var(--surface)); }
+.salary-insights .report-table :is(th,td) { white-space: normal; }
+@media (forced-colors: active) {
+  .salary-insights .insight-box { background: ButtonText; }
+  .salary-insights .insight-median { background: Highlight; }
+}
+
+@media (min-width: 1101px) {
+  .salary-insights .insight-controls {
+    position: relative;
+    isolation: isolate;
+    background: transparent;
+    box-shadow: none;
+  }
+  .salary-insights .insight-controls::before {
+    content: '';
+    position: absolute;
+    inset: 0 8px;
+    z-index: -1;
+    border-radius: 20px 26px 26px 20px;
+    transform: skewX(-4deg);
+    background: var(--insight-shelf-face);
+    box-shadow: var(--insight-shelf-shadow);
+    pointer-events: none;
+  }
+}
+
+[data-theme='dark'] .salary-insights .insight-view-grid {
+  border-color: transparent;
+  background: var(--plot-recess);
+  box-shadow: inset 0 2px 6px var(--plot-shadow);
+}
+[data-theme='dark'] .salary-insights .insight-view-grid a[aria-current='page'] {
+  background: color-mix(in srgb, var(--surface-subtle) 76%, var(--primary));
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 var(--plot-glint), 0 2px 5px var(--plot-shadow);
+}
+[data-theme='dark'] .salary-insights .insight-heading-actions [data-variant='default'] {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+[data-theme='dark'] .salary-insights .insight-heading-actions .insight-refresh {
+  border-color: transparent;
+  background: var(--surface-subtle);
+  color: var(--foreground);
+}

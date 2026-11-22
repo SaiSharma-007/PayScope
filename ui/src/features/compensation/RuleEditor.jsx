@@ -1,6 +1,9 @@
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import { Spinner } from '../../components/ui/spinner'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, FlaskConical, Save } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 import SelectField from '../../components/SelectField'
 import ComponentEditor from './ComponentEditor'
 import Breakdown from './Breakdown'
@@ -87,10 +90,12 @@ export default function RuleEditor() {
       navigate(`/rules/${destination}`, { replace: true })
     }
   }, [dirty, navigate])
+  const previewKey = JSON.stringify([samplePay, draft.currency_code, draft.components])
+  const currentPreview = preview?.key === previewKey ? preview.result : null
+
   function change(patch) {
     setDraft((previous) => ({ ...previous, ...patch }))
     setError(null)
-    setPreview(null)
     setPreviewError(null)
   }
   async function save(event) {
@@ -142,7 +147,7 @@ export default function RuleEditor() {
           components: draft.components,
         }),
       })
-      setPreview(result)
+      setPreview({ key: previewKey, result })
     } catch (error) {
       setPreviewError(error)
     } finally {
@@ -193,27 +198,25 @@ export default function RuleEditor() {
           }
         }}
       />
-      <Link className="comp-back" to="/rules">
-        <ArrowLeft size={16} aria-hidden="true" />
-        All compensation rules
-      </Link>
+      <Button asChild variant="outline" className="comp-back rule-header-control">
+        <Link to="/rules">
+          <ArrowLeft data-icon="inline-start" aria-hidden="true" />
+          All compensation rules
+        </Link>
+      </Button>
       <div className="workspace-heading">
         <div>
-          <span className="eyebrow">
-            {ruleId
-              ? `RULE · VERSION ${record?.version.number || '…'}`
-              : 'NEW COMPENSATION RULE'}
-          </span>
+
           <h1>
             {ruleId
               ? record?.version.name || 'Compensation rule'
-              : 'Build a clear pay structure.'}
+              : 'New compensation rule'}
           </h1>
-          <p>Reusable components, with every calculation in view.</p>
         </div>
         {record && !editing && (
-          <button
-            className="button secondary"
+          <Button
+            variant="outline"
+            className="rule-header-control"
             disabled={busy}
             onClick={toggleStatus}
           >
@@ -222,9 +225,29 @@ export default function RuleEditor() {
               : record.rule.active
                 ? 'Deactivate rule'
                 : 'Reactivate rule'}
-          </button>
+          </Button>
         )}
       </div>
+      {record && (
+        <div className="rule-version-bar">
+        {record && !editing && (
+          <SelectField
+            id="rule-version-history"
+            label="Inspect version"
+            value={record.version.id}
+            options={record.versions.map((version) => ({
+              value: version.id,
+              label: `Version ${version.number} · ${new Date(version.created_at).toLocaleDateString()}`,
+            }))}
+            onChange={(value) => {
+              setLoading(true)
+              setParams({ version: value })
+            }}
+          />
+        )}
+          {editing && <span className="rule-state">Draft version {record.rule.latest_version + 1}</span>}
+        </div>
+      )}
       {loading ? (
         <section className="panel comp-loading" role="status">
           Loading the saved rule…
@@ -232,9 +255,9 @@ export default function RuleEditor() {
       ) : error && ruleId && !record ? (
         <section className="panel comp-loading">
           <ErrorSummary error={error} />
-          <button className="button secondary" onClick={reload}>
+          <Button variant="secondary" onClick={reload}>
             Try again
-          </button>
+          </Button>
         </section>
       ) : (
         <div className="rule-editor-grid">
@@ -243,13 +266,13 @@ export default function RuleEditor() {
               <ErrorSummary error={error} onReload={requestReload} />
               <ErrorSummary error={reference.error} />
               {reference.error && (
-                <button
+                <Button
                   type="button"
                   className="text-link"
                   onClick={reference.retry}
                 >
                   Retry reference data
-                </button>
+                </Button>
               )}
               <div className="comp-section-heading">
                 <div>
@@ -274,21 +297,6 @@ export default function RuleEditor() {
                   </span>
                 )}
               </div>
-              {record && !editing && (
-                <SelectField
-                  id="rule-version-history"
-                  label="Inspect version"
-                  value={record.version.id}
-                  options={record.versions.map((version) => ({
-                    value: version.id,
-                    label: `Version ${version.number} · ${new Date(version.created_at).toLocaleDateString()}`,
-                  }))}
-                  onChange={(value) => {
-                    setLoading(true)
-                    setParams({ version: value })
-                  }}
-                />
-              )}
               <div className="rule-metadata">
                 <FormField
                   id="rule-name"
@@ -382,8 +390,8 @@ export default function RuleEditor() {
               <div className="comp-actions">
                 {editing ? (
                   <>
-                    <button
-                      className="button primary"
+                    <Button
+                      variant="default"
                       type="submit"
                       disabled={
                         busy ||
@@ -396,12 +404,12 @@ export default function RuleEditor() {
                       {busy
                         ? 'Saving…'
                         : ruleId
-                          ? 'Publish new version'
+                          ? `Publish version ${record.rule.latest_version + 1}`
                           : 'Create rule'}
-                    </button>
+                    </Button>
                     {ruleId && (
-                      <button
-                        className="button secondary"
+                      <Button
+                        variant="secondary"
                         type="button"
                         disabled={busy}
                         onClick={() =>
@@ -409,12 +417,12 @@ export default function RuleEditor() {
                         }
                       >
                         Cancel editing
-                      </button>
+                      </Button>
                     )}
                   </>
                 ) : (
-                  <button
-                    className="button primary"
+                  <Button
+                    variant="default"
                     type="button"
                     disabled={!record?.rule.active || busy}
                     onClick={(event) => {
@@ -423,50 +431,50 @@ export default function RuleEditor() {
                     }}
                   >
                     Create new version from v{record?.version.number}
-                  </button>
+                  </Button>
                 )}
               </div>
             </form>
           </section>
-          <aside
-            className="panel rule-preview-panel"
-            aria-label="Rule calculation preview"
-          >
-            <span className="icon-tile">
-              <FlaskConical size={23} aria-hidden="true" />
-            </span>
-            <h2>Try the calculation.</h2>
-            <p className="comp-muted">
-              Unsaved example data. Employee records stay unchanged.
-            </p>
-            <FormField
-              id="rule-preview-basic"
-              label={`Example annual basic pay (${draft.currency_code})`}
-              value={samplePay}
-              inputMode="decimal"
-              disabled={previewBusy || busy}
-              onChange={(event) => {
-                setSamplePay(event.target.value)
-                setPreview(null)
-              }}
-              error={errorsFor(previewError, 'annual_basic_pay')}
-            />
-            <button
-              className="button secondary"
-              disabled={previewBusy || busy}
-              onClick={calculatePreview}
-            >
-              {previewBusy ? 'Calculating…' : 'Preview calculation'}
-            </button>
+          <Card className="rule-preview-panel" aria-labelledby="rule-preview-title">
+            <CardHeader>
+              <CardTitle><h2 id="rule-preview-title">Calculation preview</h2></CardTitle>
+              <CardDescription>Example amounts in {draft.currency_code}.</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <div className="rule-preview-inputs">
+              <FormField
+                id="rule-preview-basic"
+                label={`Example annual basic pay (${draft.currency_code})`}
+                value={samplePay}
+                inputMode="decimal"
+                disabled={previewBusy || busy}
+                onChange={(event) => {
+                  setSamplePay(event.target.value)
+                  setPreviewError(null)
+                }}
+                error={errorsFor(previewError, 'annual_basic_pay')}
+              />
+              <Button
+                variant="default"
+                disabled={previewBusy || busy}
+                onClick={calculatePreview}
+              >
+                {previewBusy && <Spinner data-icon="inline-start" />}
+                {previewBusy ? 'Calculating…' : preview ? 'Refresh preview' : 'Preview calculation'}
+              </Button>
+            </div>
             <ErrorSummary error={previewError} />
-            <Breakdown result={preview} title="Example annual breakdown" />
+            <Breakdown result={currentPreview} title="Example annual breakdown" />
+            {preview && !currentPreview && <p className="comp-footnote" role="status">Inputs changed. Refresh the preview to see updated amounts.</p>}
             {!preview && (
               <p className="comp-footnote">
                 Fixed amounts and percentages use annual basic pay. Target
                 components are shown separately from guaranteed costs.
               </p>
             )}
-          </aside>
+            </CardContent>
+          </Card>
         </div>
       )}
     </main>

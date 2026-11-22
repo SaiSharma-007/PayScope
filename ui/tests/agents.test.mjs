@@ -260,6 +260,7 @@ test('new chat keeps its POST stream and restores all five activity stages', asy
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   let detailReads = 0
   let submissions = 0
+  const response = Promise.withResolvers()
   const prompt = 'What is the average annual base pay in Germany in EUR?'
   const answer = 'Germany — average annual gross base pay of EUR 75,000.00.'
   const trace = [
@@ -287,7 +288,7 @@ test('new chat keeps its POST stream and restores all five activity stages', asy
     }
     if (path.endsWith('/runs')) {
       submissions++
-      return route.fulfill({ contentType: 'text/event-stream', body: sse(trace) })
+      return response.promise.then(() => route.fulfill({ contentType: 'text/event-stream', body: sse(trace) }))
     }
     throw new Error(`Unexpected request: ${path}`)
   })
@@ -295,6 +296,12 @@ test('new chat keeps its POST stream and restores all five activity stages', asy
     await page.goto(new URL('/insights/ask', origin).href)
     await page.getByLabel('Your pay question').fill(prompt)
     await page.getByLabel('Your pay question').press('Enter')
+    const activity = page.getByRole('button', { name: /Report activity/ })
+    await page.getByText('Waiting for the run to start').waitFor()
+    assert.equal(await activity.getAttribute('aria-expanded'), 'true')
+    await activity.click()
+    assert.equal(await activity.getAttribute('aria-expanded'), 'false')
+    response.resolve()
     await page.getByText(answer, { exact: true }).waitFor()
     assert.equal(submissions, 1)
     assert.equal(detailReads, 0, 'Adopting the chat ID must not reload the thread')
@@ -313,6 +320,7 @@ test('new chat keeps its POST stream and restores all five activity stages', asy
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.screenshot({ path: '../artifacts/verification/agent-chat-mobile.png' })
   } finally {
+    response.resolve()
     await page.close()
   }
 })
@@ -397,7 +405,8 @@ test('HR reconnects from a saved chat cursor and verifies the report revision', 
     assert.equal(submissions, 1)
     assert.equal(replays, 1)
     await page.reload()
-    await page.getByRole('link', { name: 'Open report' }).click()
+    await page.getByRole('button', { name: 'View source report' }).click()
+    await page.getByRole('dialog', { name: 'Source report' }).getByRole('link', { name: 'Open report' }).click()
     await page
       .getByText('Salary data has changed since this answer.', { exact: false })
       .waitFor()
@@ -484,7 +493,16 @@ test('cached chats preserve drafts, interactive figures, and delete with Undo', 
     await page.screenshot({ path: '../artifacts/verification/chat-interactive-report.png' })
     await page.setViewportSize({ width: 390, height: 844 })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    const source = page.getByRole('button', { name: 'View source report' })
+    await source.click()
+    const sheet = page.getByRole('dialog', { name: 'Source report' })
+    await sheet.getByRole('heading', { name: 'Annual base pay' }).waitFor()
+    await sheet.getByRole('combobox', { name: 'Chart measure' }).click()
+    await page.getByRole('option', { name: 'Median base pay', exact: true }).click()
     await page.screenshot({ path: '../artifacts/verification/chat-interactive-report-mobile.png' })
+    await page.keyboard.press('Escape')
+    await sheet.waitFor({ state: 'hidden' })
+    await page.waitForFunction(() => document.activeElement?.textContent.includes('View source report'))
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.getByRole('button', { name: `Delete chat: ${first.title}` }).click()
     const chatDialog = page.getByRole('alertdialog', { name: 'Delete this conversation?' })
@@ -756,7 +774,7 @@ test('save a report, reopen independently, edit, delete and undo', async () => {
     await page.getByLabel('Title', { exact: true }).fill('Updated report')
     await page.getByRole('button', { name: 'Save details' }).click()
     await page.getByRole('heading', { name: 'Updated report', exact: true }).waitFor()
-    await page.getByText('Edit title and description', { exact: true }).click()
+    await page.getByRole('dialog', { name: 'Edit title and description' }).waitFor({ state: 'hidden' })
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: '../artifacts/verification/saved-report-desktop.png' })
     await page.setViewportSize({ width: 390, height: 844 })
@@ -774,6 +792,14 @@ test('save a report, reopen independently, edit, delete and undo', async () => {
     await page.getByRole('heading', { name: 'Updated report', exact: true }).waitFor()
     await page.getByRole('link', { name: 'Back to saved reports', exact: true }).click()
     await page.getByRole('link', { name: 'Updated report', exact: true }).waitFor()
+    await page.getByRole('searchbox', { name: 'Search reports' }).fill('Updated')
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await page.waitForURL((url) => url.searchParams.get('q') === 'Updated')
+    await page.getByRole('link', { name: 'Updated report', exact: true }).click()
+    await page.getByRole('link', { name: 'Back to saved reports', exact: true }).click()
+    await page.waitForURL((url) => url.searchParams.get('q') === 'Updated')
+    assert.equal(await page.getByRole('searchbox', { name: 'Search reports' }).inputValue(), 'Updated')
+
     await page.screenshot({ path: '../artifacts/verification/saved-report-library-mobile.png' })
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.screenshot({ path: '../artifacts/verification/saved-report-library-desktop.png' })

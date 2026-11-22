@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
@@ -6,13 +6,15 @@ import {
   ChartNoAxesCombined,
   FileChartColumn,
   ChevronRight,
-  LayoutDashboard,
+  House,
+  Layers,
   PanelLeft,
   SlidersHorizontal,
   Users,
-  X,
 } from 'lucide-react'
 import { useAuth } from '../features/auth/useAuth'
+import { Button } from './ui/button'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from './ui/sheet'
 import Brand from './Brand'
 import ThemeSwitch from './ThemeSwitch'
 import SignOutButton from './SignOutButton'
@@ -21,17 +23,16 @@ const pages = [
   {
     path: '/overview',
     label: 'Overview',
-    icon: LayoutDashboard,
+    icon: House,
   },
   { path: '/employees', label: 'Employees', icon: Users },
-  { path: '/rules', label: 'Compensation rules', icon: SlidersHorizontal },
+  { path: '/rules', label: 'Compensation rules', icon: Layers },
   {
     path: '/insights',
     label: 'Salary insights',
     icon: ChartNoAxesCombined,
   },
   { path: '/saved-reports', label: 'Saved reports', icon: FileChartColumn },
-  { path: '/activity', label: 'Activity', icon: Activity, preview: true },
 ]
 
 function Navigation({ onNavigate }) {
@@ -50,56 +51,51 @@ function Navigation({ onNavigate }) {
       </div>
       <nav aria-label="Workspace navigation" className="workspace-nav">
         <p className="nav-section-label">WORKSPACE</p>
-        {pages.map(({ path, label, icon: Icon, preview }) => (
-          <NavLink
-            key={path}
-            to={path}
-            onClick={onNavigate}
-            aria-label={label}
-            title={label}
-            className={({ isActive }) =>
-              `workspace-link${isActive ? ' active' : ''}`
-            }
-          >
-            <Icon size={20} aria-hidden="true" />
-            <span className="nav-copy">{label}</span>
-            {preview && (
-              <span className="nav-preview" aria-hidden="true">
-                Preview
-              </span>
-            )}
-          </NavLink>
-        ))}
-        {session?.user.manage_agent_prompts && (
-          <>
-            <p className="nav-section-label nav-secondary">ADMIN</p>
+        {pages.map(({ path, label, icon: Icon }) => (
+          <Button key={path} asChild variant="ghost" className="workspace-link">
             <NavLink
-              to="/admin/agent-prompts"
+              to={path}
               onClick={onNavigate}
-              title="Prompt catalog"
-              aria-label="Prompt catalog"
-              className={({ isActive }) =>
-                `workspace-link${isActive ? ' active' : ''}`
-              }
+              aria-label={label}
+              title={label}
             >
-              <SlidersHorizontal size={20} aria-hidden="true" />
+              <Icon aria-hidden="true" />
+              <span className="nav-copy">{label}</span>
+            </NavLink>
+          </Button>
+        ))}
+        {(session?.user.manage_agent_prompts || session?.user.view_agent_observability) && (
+          <p className="nav-section-label nav-secondary">ADMIN</p>
+        )}
+        {session?.user.manage_agent_prompts && (
+          <Button asChild variant="ghost" className="workspace-link">
+            <NavLink to="/admin/agent-prompts" onClick={onNavigate} title="Prompt catalog" aria-label="Prompt catalog">
+              <SlidersHorizontal aria-hidden="true" />
               <span className="nav-copy">Prompt catalog</span>
             </NavLink>
-          </>
+          </Button>
         )}
-        {session?.user.view_agent_observability && <NavLink to="/admin/agent-runs" onClick={onNavigate} title="Agent observability" className={({isActive})=>`workspace-link${isActive?' active':''}`}><Activity size={20} aria-hidden="true"/><span className="nav-copy">Agent observability</span></NavLink>}
+        {session?.user.view_agent_observability && (
+          <Button asChild variant="ghost" className="workspace-link">
+            <NavLink to="/admin/agent-runs" onClick={onNavigate} title="Agent observability" aria-label="Agent observability">
+              <Activity aria-hidden="true" />
+              <span className="nav-copy">Agent observability</span>
+            </NavLink>
+          </Button>
+        )}
       </nav>
       <div className="sidebar-bottom">
-        <Link
-          to="/"
-          onClick={onNavigate}
-          className="workspace-link"
-          aria-label="About PayScope"
-          title="About PayScope"
-        >
-          <ArrowUpRight size={19} aria-hidden="true" />
-          <span className="nav-copy">About PayScope</span>
-        </Link>
+        <Button asChild variant="ghost" className="workspace-link">
+          <Link
+            to="/"
+            onClick={onNavigate}
+            aria-label="About PayScope"
+            title="About PayScope"
+          >
+            <ArrowUpRight aria-hidden="true" />
+            <span className="nav-copy">About PayScope</span>
+          </Link>
+        </Button>
       </div>
     </>
   )
@@ -113,12 +109,11 @@ export default function WorkspaceShell() {
     () => matchMedia('(max-width: 1100px)').matches,
   )
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const drawer = useRef(null)
   useEffect(() => {
     const media = matchMedia('(max-width: 1100px)')
     function resize(event) {
       setMobile(event.matches)
-      if (!event.matches) drawer.current.close()
+      if (!event.matches) setDrawerOpen(false)
     }
     media.addEventListener('change', resize)
     return () => media.removeEventListener('change', resize)
@@ -127,58 +122,54 @@ export default function WorkspaceShell() {
     pages.find(
       (page) => page.path === pathname || pathname.startsWith(page.path + '/'),
     )?.label ||
-    (pathname === '/admin/agent-prompts' ? 'Prompt catalog' : pathname.startsWith('/admin/agent-runs') ? 'Agent observability' : 'Workspace')
-  function toggleNavigation(event) {
-    if (mobile) {
-      drawer.current.dataset.keyboard = String(event.detail === 0)
-      drawer.current.showModal()
-      setDrawerOpen(true)
-    } else setCollapsed((previous) => !previous)
-  }
+    (pathname === '/activity' ? 'Activity' : pathname === '/admin/agent-prompts' ? 'Prompt catalog' : pathname.startsWith('/admin/agent-runs') ? 'Agent observability' : 'Workspace')
+  const mobileNavigationToggle = (
+    <Button
+      variant="secondary"
+      size="icon-lg"
+      className="workspace-toggle"
+      aria-label="Toggle navigation"
+      title="Toggle navigation"
+    >
+      <PanelLeft aria-hidden="true" />
+    </Button>
+  )
+
   return (
-    <div className={`workspace-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
-      <aside className="workspace-sidebar">
+    <div className={collapsed ? 'workspace-shell sidebar-collapsed' : 'workspace-shell'}>
+      <aside id="workspace-sidebar" className="workspace-sidebar">
         <Navigation />
       </aside>
-      <dialog
-        id="workspace-navigation"
-        className="navigation-drawer"
-        ref={drawer}
-        aria-label="Workspace navigation"
-        onClose={() => setDrawerOpen(false)}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) drawer.current.close()
-        }}
-      >
-        <button
-          className="icon-button drawer-close"
-          aria-label="Close navigation"
-          autoFocus
-          onClick={() => drawer.current.close()}
-        >
-          <X size={20} />
-        </button>
-        <Navigation onNavigate={() => drawer.current.close()} />
-      </dialog>
       <div className="workspace-body">
         <header className="workspace-topbar">
           <div className="topbar-location">
-            <button
-              className="icon-button"
-              aria-label="Toggle navigation"
-              title="Toggle navigation"
-              aria-expanded={mobile ? drawerOpen : !collapsed}
-              aria-controls={mobile ? 'workspace-navigation' : undefined}
-              onClick={toggleNavigation}
-            >
-              <PanelLeft size={21} aria-hidden="true" />
-            </button>
+            {mobile ? (
+              <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <SheetTrigger asChild>{mobileNavigationToggle}</SheetTrigger>
+                <SheetContent side="left" className="workspace-drawer" aria-describedby={undefined}>
+                  <SheetTitle className="sr-only">Workspace navigation</SheetTitle>
+                  <Navigation onNavigate={() => setDrawerOpen(false)} />
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <Button
+                variant="secondary"
+                size="icon-lg"
+                className="workspace-toggle"
+                aria-label="Toggle navigation"
+                title="Toggle navigation"
+                aria-expanded={!collapsed}
+                aria-controls="workspace-sidebar"
+                onClick={() => setCollapsed((previous) => !previous)}
+              >
+                <PanelLeft aria-hidden="true" />
+              </Button>
+            )}
             <nav aria-label="Breadcrumb">
               <span>Workspace</span>
               <ChevronRight size={14} aria-hidden="true" />
               <strong aria-current="page">{title}</strong>
-
-      </nav>
+            </nav>
           </div>
           <div className="topbar-actions">
             <span className="workspace-environment">Demo workspace</span>

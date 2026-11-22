@@ -1,0 +1,88 @@
+.payscope-signin {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.signin-header {
+  width: min(calc(100% - 40px), 1280px);
+  min-height: 76px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.signin-header .brand { color: var(--landing-ink); }
+.signin-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: .875rem;
+  cursor: pointer;
+}
+.signin-theme-toggle svg { color: var(--landing-primary); }
+.signin-header :is(.brand-mark, [data-slot='switch'][data-state='checked']) {
+  background: var(--landing-primary);
+  color: var(--landing-on-primary);
+  box-shadow: none;
+}
+.signin-header [data-slot='switch'] { background: var(--landing-muted); border: 1px solid var(--landing-input); padding: 0; }
+.signin-header [data-slot='switch-thumb'] { background: var(--landing-subtle); }
+.signin-header [data-slot='switch-thumb'][data-state='checked'] { translate: 14px 0; background: var(--landing-on-primary); }
+.signin-main {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: clamp(26px, 7vh, 70px) 20px;
+  gap: 19px;
+}
+.signin-card {
+  --card-spacing: clamp(20px, 5vw, 38px);
+  width: min(100%, 450px);
+  border-radius: 24px;
+  background: var(--landing-card);
+  box-shadow: inset 0 1px 0 var(--landing-highlight), 0 13px 26px var(--landing-shadow);
+}
+.signin-card h1 { font-size: clamp(1.85rem, 4vw, 2.5rem); line-height: 1.08; letter-spacing: -.04em; }
+.signin-card [data-slot='card-description'] { margin-top: 6px; }
+.signin-card [data-slot='field-group'] { gap: 18px; }
+.signin-card [data-slot='field'] { gap: 6px; }
+.signin-card :is([data-slot='input'], [data-slot='input-group']) {
+  min-height: 48px;
+  border: 1px solid var(--landing-input);
+  border-radius: 12px;
+  background: var(--landing-muted);
+  box-shadow: inset 0 2px 5px var(--landing-shadow);
+  font-size: 1rem;
+}
+.signin-card [data-slot='input-group'] [data-slot='input-group-control'] { font-size: 1rem; }
+.signin-card [data-slot='input-group-addon'] [data-slot='button'] { padding: 0; border: 0; background: transparent; width: 42px; height: 44px; color: var(--landing-ink); }
+.payscope-signin :is(a, button, input, [role='alert']):focus-visible { outline: 2px solid var(--landing-primary); outline-offset: 3px; }
+.signin-card [data-slot='alert'] { border: 1px solid var(--landing-input); background: var(--landing-muted); color: var(--landing-ink); }
+.signin-card [data-slot='alert'][role='status'] { margin-bottom: 16px; }
+.signin-card [role='alert'] [data-slot='alert-description'] { color: var(--landing-ink); }
+.signin-card [data-slot='field-error'] { color: var(--landing-ink); font-weight: 600; }
+.signin-card [data-signin-action] {
+  min-height: 50px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--landing-primary);
+  color: var(--landing-on-primary);
+  font-weight: 700;
+  box-shadow: 1px 6px 13px -4px var(--landing-control-contact), 2px 11px 17px -5px var(--landing-control-ambient);
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+.signin-card [data-signin-action]:active { translate: none; box-shadow: inset 0 2px 6px var(--landing-shadow); }
+.signin-demo-note { margin-top: 23px; color: var(--landing-subtle); }
+.signin-retry { color: var(--landing-ink); font-size: .875rem; text-align: center; }
+@media (max-width: 600px), (max-height: 680px) {
+  .signin-main { align-content: start; padding-top: 24px; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .signin-card [data-signin-action]:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--landing-primary), var(--landing-ink) 10%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .payscope-signin :is([data-slot='button'], [data-slot='switch-thumb']) { transition: none; }
+  .payscope-signin [data-slot='spinner'] { animation: none; }
+}

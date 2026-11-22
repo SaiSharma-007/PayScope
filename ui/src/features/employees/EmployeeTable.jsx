@@ -1,11 +1,13 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../components/ui/table'
+import { Button } from '../../components/ui/button'
 import { money } from '../compensation/shared'
 import { ChevronRight } from 'lucide-react'
 import Skeleton from '../../components/Skeleton'
 
 function EmployeeSkeletonRows({ count }) {
   return Array.from({ length: count }, (_, index) => (
-    <tr key={index}>
-      <td className="identity-cell">
+    <TableRow key={index}>
+      <TableCell className="identity-cell">
         <span className="employee-identity">
           <Skeleton width="38px" height="38px" round />
           <span className="skeleton-stack">
@@ -13,26 +15,26 @@ function EmployeeSkeletonRows({ count }) {
             <Skeleton width="50%" height="0.6rem" />
           </span>
         </span>
-      </td>
-      <td data-label="Department / role">
+      </TableCell>
+      <TableCell data-label="Department / role">
         <span className="skeleton-stack">
           <Skeleton width="80%" />
           <Skeleton width="65%" height="0.6rem" />
         </span>
-      </td>
-      <td data-label="Country">
+      </TableCell>
+      <TableCell data-label="Country">
         <Skeleton width="4rem" />
-      </td>
-      <td className="salary-cell" data-label="Annual compensation">
+      </TableCell>
+      <TableCell className="salary-cell" data-label="Annual compensation">
         <span className="skeleton-stack">
           <Skeleton width="8.5rem" />
           <Skeleton width="7rem" height="0.6rem" />
         </span>
-      </td>
-      <td className="employee-action-cell">
+      </TableCell>
+      <TableCell className="employee-action-cell">
         <Skeleton width="2rem" />
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   ))
 }
 
@@ -42,36 +44,36 @@ export default function EmployeeTable({
   skeletonRows = 0,
 }) {
   return (
-    <table className="employee-table" role="table">
-      <caption className="sr-only">
+    <Table className="employee-table" role="table">
+      <TableCaption className="sr-only">
         Employee directory and annual compensation
-      </caption>
-      <thead role="rowgroup">
-        <tr role="row">
-          <th scope="col" role="columnheader">
+      </TableCaption>
+      <TableHeader role="rowgroup">
+        <TableRow role="row">
+          <TableHead scope="col" role="columnheader">
             Employee
-          </th>
-          <th scope="col" role="columnheader">
+          </TableHead>
+          <TableHead scope="col" role="columnheader">
             Department / role
-          </th>
-          <th scope="col" role="columnheader">
+          </TableHead>
+          <TableHead scope="col" role="columnheader">
             Country
-          </th>
-          <th scope="col" role="columnheader" className="salary-cell">
+          </TableHead>
+          <TableHead scope="col" role="columnheader" className="salary-cell">
             Annual compensation
-          </th>
-          <th scope="col" role="columnheader" className="employee-action-cell">
+          </TableHead>
+          <TableHead scope="col" role="columnheader" className="employee-action-cell">
             <span className="sr-only">Details</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody role="rowgroup" aria-hidden={skeletonRows ? true : undefined}>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody role="rowgroup" aria-hidden={skeletonRows ? true : undefined}>
         {skeletonRows ? (
           <EmployeeSkeletonRows count={skeletonRows} />
         ) : (
           employees.map((employee) => (
-            <tr key={employee.id} role="row">
-              <td role="cell" className="identity-cell">
+            <TableRow key={employee.id} role="row">
+              <TableCell role="cell" className="identity-cell">
                 <span className="employee-identity">
                   <span className="avatar" aria-hidden="true">
                     {employee.full_name
@@ -87,19 +89,19 @@ export default function EmployeeTable({
                     </small>
                   </span>
                 </span>
-              </td>
-              <td role="cell" data-label="Department / role">
+              </TableCell>
+              <TableCell role="cell" data-label="Department / role">
                 <span>
                   <strong>{employee.department_name}</strong>
                   <small>{employee.job_title}</small>
                 </span>
-              </td>
-              <td role="cell" data-label="Country">
+              </TableCell>
+              <TableCell role="cell" data-label="Country">
                 <span className="employee-country">
                   {employee.country_name}
                 </span>
-              </td>
-              <td
+              </TableCell>
+              <TableCell
                 role="cell"
                 data-label="Annual compensation"
                 className="salary-cell"
@@ -122,23 +124,24 @@ export default function EmployeeTable({
                         : 'No compensation record'}
                   </small>
                 </span>
-              </td>
-              <td role="cell" className="employee-action-cell">
-                <button
+              </TableCell>
+              <TableCell role="cell" className="employee-action-cell">
+                <Button
                   className="compensation-action"
+                  variant="secondary"
                   type="button"
                   onClick={() => onCompensation(employee)}
                   aria-label={`Compensation for ${employee.full_name}`}
                   title="View compensation"
                 >
-                  <span>View</span>
-                  <ChevronRight size={16} aria-hidden="true" />
-                </button>
-              </td>
-            </tr>
+                  <span>View<span className="compensation-action-detail"> compensation</span></span>
+                  <ChevronRight data-icon="inline-end" aria-hidden="true" />
+                </Button>
+              </TableCell>
+            </TableRow>
           ))
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }

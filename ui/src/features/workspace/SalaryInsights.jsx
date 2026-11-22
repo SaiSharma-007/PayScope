@@ -1,3 +1,8 @@
+import { Button } from '../../components/ui/button'
+import { Card } from '../../components/ui/card'
+import { FieldGroup } from '../../components/ui/field'
+import { Input } from '../../components/ui/input'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableCaption } from '../../components/ui/table'
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
@@ -84,7 +89,7 @@ function YearField({ id, label, value, min = 1900, max = 9998, onChange }) {
       <DefinedLabel label={label}>
         <label htmlFor={id}>{label}</label>
       </DefinedLabel>
-      <input
+      <Input
         id={id}
         type="number"
         min={min}
@@ -182,42 +187,42 @@ function InsightTable({
   const groupLabel = timeline ? 'Year and award type' : GROUPS[grouping]
   return (
     <div className="insight-table-wrap">
-      <table className="report-table" role="table">
-        <caption className="sr-only">
+      <Table className="report-table" role="table">
+        <TableCaption className="sr-only">
           {currency ? `Exact values in ${currency}` : 'Exact values'}
-        </caption>
-        <thead role="rowgroup">
-          <tr role="row">
-            <th scope="col">
+        </TableCaption>
+        <TableHeader role="rowgroup">
+          <TableRow role="row">
+            <TableHead scope="col">
               {loading ? groupLabel : <DefinedLabel label={groupLabel} />}
-            </th>
+            </TableHead>
             {columns.map(([label]) => (
-              <th key={label} scope="col">
+              <TableHead key={label} scope="col">
                 {loading ? label : <DefinedLabel label={label} />}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody role="rowgroup" aria-hidden={loading || undefined}>
+          </TableRow>
+        </TableHeader>
+        <TableBody role="rowgroup" aria-hidden={loading || undefined}>
           {loading
             ? Array.from({ length: 4 }, (_, index) => (
-                <tr key={index} role="row">
-                  <th scope="row" role="rowheader">
+                <TableRow key={index} role="row">
+                  <TableHead scope="row" role="rowheader">
                     <Skeleton width="5.5rem" />
-                  </th>
+                  </TableHead>
                   {columns.map(([label]) => (
-                    <td key={label} role="cell" data-label={label}>
+                    <TableCell key={label} role="cell" data-label={label}>
                       <Skeleton width="4rem" />
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             : rows.map((row) => (
-                <tr
+                <TableRow
                   key={timeline ? `${row.year}:${row.kind}` : row.group_id}
                   role="row"
                 >
-                  <th scope="row" role="rowheader">
+                  <TableHead scope="row" role="rowheader">
                     {timeline ? (
                       <>
                         {row.year} · {AWARDS[row.kind]}
@@ -229,18 +234,18 @@ function InsightTable({
                       <Components row={row} currency={currency} />
                     )}
                     {onDrill && (
-                      <button
+                      <Button
                         type="button"
                         className="insight-text-button insight-table-drill"
                         aria-label={`${drillLabel} in ${row.group_name}`}
                         onClick={() => onDrill(row)}
                       >
                         {drillLabel} <ArrowRight size={14} aria-hidden="true" />
-                      </button>
+                      </Button>
                     )}
-                  </th>
+                  </TableHead>
                   {columns.map(([label, read, mode]) => (
-                    <td role="cell" data-label={label} key={label}>
+                    <TableCell role="cell" data-label={label} key={label}>
                       {formatValue(read(row), mode, currency)}
                       {label === 'Missing' &&
                         row.missing > 0 &&
@@ -256,12 +261,12 @@ function InsightTable({
                               .join(' · ')}
                           </InsightHelp>
                         )}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }
@@ -325,7 +330,7 @@ function CurrencyReport({
       ? `${report.start_year}–${report.year}`
       : report.year
   return (
-    <section className="panel insight-panel" aria-label={`${code} report`}>
+    <Card className="insight-panel" role="region" aria-label={`${code} report`}>
       <div className="insight-panel-heading">
         <div>
           <h3>
@@ -425,7 +430,7 @@ function CurrencyReport({
         onDrill={onDrill}
         drillLabel={drillLabel}
       />
-    </section>
+    </Card>
   )
 }
 
@@ -569,19 +574,20 @@ export default function SalaryInsights() {
           <p>Explore pay, payroll, and equity across your workforce.</p>
         </div>
         <div className="insight-heading-actions">
-          <Link className="button primary" to="/insights/ask">
-            <MessageSquare size={16} aria-hidden="true" /> Ask about pay
-          </Link>
-          <button
+          <Button asChild size="lg"><Link to="/insights/ask">
+            <MessageSquare data-icon="inline-start" aria-hidden="true" /> Ask about pay
+          </Link></Button>
+          <Button
             type="button"
-            className="button secondary insight-refresh"
+            variant="outline"
+            className="insight-refresh"
             aria-label="Refresh report"
             disabled={loading}
             onClick={retry}
           >
             <RotateCw size={16} aria-hidden="true" />
             <span>Refresh report</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -593,7 +599,7 @@ export default function SalaryInsights() {
             if (view !== insight) setParams(viewParams(view))
           }}
         />
-        <div className="insight-primary-fields report-filters">
+        <FieldGroup className="insight-primary-fields report-filters">
           {!timeline && type !== 'paired' && (
             <InsightSelect
               id="insight-metric"
@@ -630,7 +636,7 @@ export default function SalaryInsights() {
             value={year}
             onChange={(value) => change('year', value)}
           />
-        </div>
+        </FieldGroup>
         <details className="insight-filters">
           <summary>
             <SlidersHorizontal size={16} aria-hidden="true" /> Workforce filters
@@ -656,22 +662,22 @@ export default function SalaryInsights() {
           </div>
           <ErrorSummary error={reference.error} />
           {reference.error && (
-            <button
+            <Button
               type="button"
-              className="button secondary"
+              variant="secondary"
               onClick={reference.retry}
             >
               Retry filter options
-            </button>
+            </Button>
           )}
           {selectedDimensions.length > 0 && (
-            <button
+            <Button
               type="button"
-              className="insight-text-button"
+              variant="link"
               onClick={clearFilters}
             >
               Clear workforce filters
-            </button>
+            </Button>
           )}
         </details>
       </section>
@@ -736,13 +742,13 @@ export default function SalaryInsights() {
           ) : error ? (
             <div className="panel insight-panel">
               <ErrorSummary error={error} />
-              <button
+              <Button
                 type="button"
-                className="button secondary"
+                variant="secondary"
                 onClick={retry}
               >
                 Retry report
-              </button>
+              </Button>
             </div>
           ) : data?.currencies.length === 0 ? (
             <div className="panel insight-panel insight-empty">
@@ -757,13 +763,13 @@ export default function SalaryInsights() {
                   : 'Try another reporting year or adjust the workforce filters.'}
               </p>
               {selectedDimensions.length > 0 && (
-                <button
+                <Button
                   type="button"
-                  className="button secondary"
+                  variant="secondary"
                   onClick={clearFilters}
                 >
                   Clear workforce filters
-                </button>
+                </Button>
               )}
               {timeline && <Link to="/employees">Review employee equity</Link>}
             </div>

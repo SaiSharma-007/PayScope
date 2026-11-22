@@ -243,10 +243,10 @@ test('Overview shows pay coverage and sends HR to the missing-pay cohort', async
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Overview fits ${width}px`)
       if (width === 1440 || width === 390) await snapshot(page, `overview-${width}`)
     }
-    const share = page.getByRole('button', { name: 'Share', exact: true })
+    const share = page.getByRole('radio', { name: 'Share', exact: true })
     await share.focus()
-    await page.keyboard.press('Enter')
-    assert.equal(await share.getAttribute('aria-pressed'), 'true')
+    await page.keyboard.press('Space')
+    assert.equal(await share.getAttribute('aria-checked'), 'true')
     await page.getByText('0–100%', { exact: true }).waitFor()
     if (snapshots) {
       await page.setViewportSize({ width: 1440, height: 950 })

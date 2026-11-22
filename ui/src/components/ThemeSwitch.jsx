@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { Moon, Sun } from 'lucide-react'
+import { Switch } from './ui/switch'
 
-export default function ThemeSwitch() {
+export default function ThemeSwitch({ compact = false }) {
   const [dark, setDark] = useState(
     () => document.documentElement.dataset.theme === 'dark',
   )
@@ -10,9 +11,7 @@ export default function ThemeSwitch() {
   const transition = useRef(null)
   const fallbackTimer = useRef(null)
   function applyTheme() {
-    document.documentElement.dataset.theme = desiredTheme.current
-      ? 'dark'
-      : 'light'
+    document.documentElement.setAttribute('data-theme', desiredTheme.current ? 'dark' : 'light')
     setDark(desiredTheme.current)
   }
   useEffect(() => {
@@ -27,9 +26,7 @@ export default function ThemeSwitch() {
       if (!saved) {
         desiredTheme.current = event.matches
         setDark(event.matches)
-        document.documentElement.dataset.theme = event.matches
-          ? 'dark'
-          : 'light'
+        document.documentElement.setAttribute('data-theme', event.matches ? 'dark' : 'light')
       }
     }
     media.addEventListener('change', followSystem)
@@ -72,6 +69,8 @@ export default function ThemeSwitch() {
       /* Theme works for this visit. */
     }
   }
+  if (compact) return <Switch aria-label="Dark theme" checked={dark} onClick={toggle} />
+
   return (
     <button
       className="theme-switch"

@@ -1,6 +1,14 @@
+import { Input } from '../../components/ui/input'
+import { Button } from '../../components/ui/button'
+import { FieldGroup } from '../../components/ui/field'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group'
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../../components/ui/sheet'
+import { toast } from 'sonner'
+import { SelectPortalContext } from '../../components/SelectPortalContext'
+import './employees.css'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Search, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Search, SlidersHorizontal, X } from 'lucide-react'
 import { request } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import SelectField from '../../components/SelectField'
@@ -18,6 +26,7 @@ export default function Employees() {
   const [referenceError, setReferenceError] = useState('')
   const [retry, setRetry] = useState(0)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
+  const [filterPortal, setFilterPortal] = useState(null)
   const tableRegion = useRef(null)
   const search = params.get('search') || ''
   const requestedPage = Number(params.get('page'))
@@ -84,6 +93,8 @@ export default function Employees() {
   const loading = data?.key !== requestKey && data?.errorKey !== requestKey
   const result = data?.key === requestKey ? data.result : null
   const previousResult = data?.result
+  const paginationResult = loading ? previousResult : result
+  const pageCount = paginationResult ? Math.ceil(paginationResult.total / paginationResult.page_size) : 0
   const error = data?.errorKey === requestKey ? data.error : null
   const hasFilters = [
     'search',
@@ -93,12 +104,40 @@ export default function Employees() {
     'pay_status',
   ].some((name) => params.get(name))
   function changePage(value) {
+    if (tableRegion.current) tableRegion.current.scrollTop = 0
     tableRegion.current?.focus({ preventScroll: true })
-    tableRegion.current?.scrollIntoView({ block: 'start' })
     const next = new URLSearchParams(params)
     next.set('page', value)
     setParams(next)
   }
+  const filterOptions = [
+    ['country_code', 'Country', options?.countries, 'code', 'All countries'],
+    ['department_id', 'Department', options?.departments, 'id', 'All departments'],
+    ['job_title_id', 'Job title', options?.job_titles, 'id', 'All job titles'],
+    ['pay_status', 'Base pay', [
+      { id: 'recorded', name: 'Base pay on file' },
+      { id: 'missing', name: 'Missing base pay' },
+    ], 'id', 'Any pay status'],
+  ]
+
+  const activeFilters = filterOptions
+    .filter(([name]) => params.has(name))
+    .map(([name, label, entries, valueKey]) => ({
+      name,
+      label,
+      value: entries?.find((entry) => String(entry[valueKey]) === params.get(name))?.name || params.get(name),
+    }))
+
+  function renderFilters(surface) {
+    return filterOptions.map(([name, label, entries, valueKey, placeholder]) => (
+      <SelectField key={name} id={`${surface}-${name}`} label={label}
+        disabled={!entries} value={params.get(name) || ''}
+        onChange={(value) => filter(name, value)} placeholder={placeholder}
+        options={(entries || []).map((entry) => ({ value: String(entry[valueKey]), label: entry.name }))}
+      />
+    ))
+  }
+
   return (
     <main id="main" className="page employees-page">
       <section
@@ -135,77 +174,59 @@ export default function Employees() {
                 )
               }}
             >
-              <Search size={18} aria-hidden="true" />
-              <input
+              <InputGroup>
+                <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+                <InputGroupInput
                 key={search}
                 id="employee-search"
                 name="search"
                 defaultValue={search}
-                placeholder="Name or employee ID"
+                placeholder="Name or ID"
                 maxLength={100}
               />
-              <button className="search-submit" type="submit">
-                Search
-              </button>
+              </InputGroup>
+              <Button className="search-submit" type="submit">Search</Button>
             </form>
           </div>
-          {[
-            [
-              'country_code',
-              'Country',
-              options?.countries,
-              'code',
-              'All countries',
-            ],
-            [
-              'department_id',
-              'Department',
-              options?.departments,
-              'id',
-              'All teams',
-            ],
-            [
-              'job_title_id',
-              'Job title',
-              options?.job_titles,
-              'id',
-              'All job titles',
-            ],
-          ].map(([name, label, entries, valueKey, placeholder]) => (
-            <SelectField
-              key={name}
-              id={name}
-              label={label}
-              disabled={!options}
-              value={params.get(name) || ''}
-              onChange={(value) => filter(name, value)}
-              placeholder={placeholder}
-              options={(entries || []).map((option) => ({
-                value: String(option[valueKey]),
-                label: option.name,
-              }))}
-            />
-          ))}
-          <SelectField
-            id="employee-pay-status"
-            label="Base pay"
-            value={params.get('pay_status') || ''}
-            onChange={(value) => filter('pay_status', value)}
-            placeholder="Any pay status"
-            options={[
-              { value: 'recorded', label: 'Base pay on file' },
-              { value: 'missing', label: 'Missing base pay' },
-            ]}
-          />
+          <FieldGroup className="directory-desktop-filters">
+            {renderFilters('desktop')}
+          </FieldGroup>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="secondary" className="directory-filter-trigger">
+                <SlidersHorizontal data-icon="inline-start" />
+                Filters{activeFilters.length ? ` (${activeFilters.length})` : ''}
+              </Button>
+            </SheetTrigger>
+            <SheetContent ref={setFilterPortal} className="directory-filter-sheet" aria-describedby={undefined}>
+              <SheetTitle>Filter employees</SheetTitle>
+              <SelectPortalContext value={filterPortal}>
+                <FieldGroup>{renderFilters('mobile')}</FieldGroup>
+              </SelectPortalContext>
+              <SheetClose asChild>
+                <Button>Show employees</Button>
+              </SheetClose>
+            </SheetContent>
+          </Sheet>
         </div>
+        {activeFilters.length > 0 && (
+          <div className="directory-applied" aria-label="Applied filters">
+            {activeFilters.map(({ name, label, value }) => (
+              <Button key={name} variant="secondary" size="sm" onClick={() => filter(name, '')}
+                aria-label={`Remove ${label} filter: ${value}`}>
+                {value}<X data-icon="inline-end" />
+              </Button>
+            ))}
+          </div>
+        )}
         {referenceError && (
           <div className="reference-error">
             <p className="error-message" role="alert">
               {referenceError}
             </p>
-            <button className="text-link" onClick={() => setRetry(retry + 1)}>
+            <Button className="text-link" onClick={() => setRetry(retry + 1)}>
               Retry filter options
-            </button>
+            </Button>
           </div>
         )}
         <div className="directory-status">
@@ -219,26 +240,98 @@ export default function Employees() {
                 : 'Annual cash & benefits · original currency'}
           </p>
           {hasFilters && (
-            <button className="clear-filters" onClick={() => setParams({})}>
+            <Button className="clear-filters" onClick={() => setParams({})}>
               <X size={15} aria-hidden="true" />
               Clear filters
-            </button>
+            </Button>
           )}
         </div>
         {error && (
           <div className="directory-error">
             <p role="alert">{error}</p>
-            <button className="button secondary" onClick={retryDirectory}>
+            <Button variant="secondary" onClick={retryDirectory}>
               Try again
-            </button>
+            </Button>
           </div>
+        )}
+        {pageCount > 0 && (
+          <nav
+            className="pagination directory-pagination"
+            aria-label="Employee pages"
+          >
+            <span>
+              {loading ? (
+                <Skeleton width="7rem" />
+              ) : result.items.length ? (
+                `${((result.page - 1) * result.page_size + 1).toLocaleString()}–${Math.min(result.page * result.page_size, result.total).toLocaleString()} of ${result.total.toLocaleString()}`
+              ) : result.total ? (
+                `0 shown of ${result.total.toLocaleString()}`
+              ) : (
+                '0 employees'
+              )}
+            </span>
+            <div>
+              <form
+                className="directory-page-jump"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const target = Number(new FormData(event.currentTarget).get('page'))
+                  if (result && Number.isSafeInteger(target) && target >= 1 && target <= Math.ceil(result.total / result.page_size)) changePage(target)
+                }}
+              >
+                <label htmlFor="directory-page">Page</label>
+                <Input
+                  key={page}
+                  id="directory-page"
+                  name="page"
+                  type="number"
+                  min={1}
+                  max={pageCount}
+                  defaultValue={page}
+                  required
+                  disabled={loading}
+                />
+                <span>of {pageCount.toLocaleString()}</span>
+                <Button type="submit" variant="outline" disabled={loading}>Go</Button>
+              </form>
+              <SelectField
+                id="page_size"
+                label="Rows per page"
+                value={String(paginationResult.page_size)}
+                onChange={(value) => filter('page_size', value)}
+                options={[10, 25, 50].map((size) => ({
+                  value: String(size),
+                  label: String(size),
+                }))}
+                disabled={loading}
+              />
+              <Button
+                variant="secondary"
+                disabled={loading || result.page <= 1}
+                onClick={() => changePage(result.page - 1)}
+              >
+                <ArrowLeft size={16} aria-hidden="true" />
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={
+                  loading || result.page * result.page_size >= result.total
+                }
+                onClick={() => changePage(result.page + 1)}
+              >
+                Next
+                <ArrowRight size={16} aria-hidden="true" />
+              </Button>
+            </div>
+          </nav>
         )}
         <div
           className="table-region"
           ref={tableRegion}
           role="region"
           aria-label="Employee results"
-          tabIndex={-1}
+          tabIndex={0}
           aria-busy={loading}
         >
           {error ? (
@@ -262,13 +355,13 @@ export default function Employees() {
                   ? 'Return to the first page to see matching employees.'
                   : 'Try a different name or clear the filters.'}
               </p>
-              <button
-                className="button secondary"
+              <Button
+                variant="secondary"
                 disabled={loading}
                 onClick={() => (result.total ? changePage(1) : setParams({}))}
               >
                 {result.total ? 'Go to first page' : 'Reset search'}
-              </button>
+              </Button>
             </div>
           ) : (
             <EmployeeTable
@@ -277,55 +370,6 @@ export default function Employees() {
             />
           )}
         </div>
-        {(loading ? previousResult?.total : result?.total) > 0 && (
-          <nav
-            className="pagination directory-pagination"
-            aria-label="Employee pages"
-          >
-            <span>
-              {loading ? (
-                <Skeleton width="7rem" />
-              ) : result.items.length ? (
-                `${((result.page - 1) * result.page_size + 1).toLocaleString()}–${Math.min(result.page * result.page_size, result.total).toLocaleString()} of ${result.total.toLocaleString()}`
-              ) : result.total ? (
-                `0 shown of ${result.total.toLocaleString()}`
-              ) : (
-                '0 employees'
-              )}
-            </span>
-            <div>
-              <SelectField
-                id="page_size"
-                label="Rows per page"
-                value={String((loading ? previousResult : result).page_size)}
-                onChange={(value) => filter('page_size', value)}
-                options={[10, 25, 50].map((size) => ({
-                  value: String(size),
-                  label: String(size),
-                }))}
-                disabled={loading}
-              />
-              <button
-                className="button secondary compact"
-                disabled={loading || result.page <= 1}
-                onClick={() => changePage(result.page - 1)}
-              >
-                <ArrowLeft size={16} aria-hidden="true" />
-                Previous
-              </button>
-              <button
-                className="button secondary compact"
-                disabled={
-                  loading || result.page * result.page_size >= result.total
-                }
-                onClick={() => changePage(result.page + 1)}
-              >
-                Next
-                <ArrowRight size={16} aria-hidden="true" />
-              </button>
-            </div>
-          </nav>
-        )}
       </section>
       {selectedEmployee && (
         <Suspense
@@ -339,7 +383,12 @@ export default function Employees() {
             key={selectedEmployee.id}
             employee={selectedEmployee}
             onClose={() => setSelectedEmployee(null)}
-            onSaved={(packageData) =>
+            onSaved={(packageData) => {
+              toast.success('Compensation saved')
+              if (params.get('pay_status')) {
+                retryDirectory()
+                return
+              }
               setData((previous) => ({
                 ...previous,
                 result: {
@@ -351,7 +400,7 @@ export default function Employees() {
                   ),
                 },
               }))
-            }
+            }}
           />
         </Suspense>
       )}

@@ -11,7 +11,7 @@ export default function Brand() {
           aria-hidden="true"
         />
       </span>
-      PayScope<span className="brand-period">.</span>
+      <span className="brand-wordmark">PayScope<span className="brand-period">.</span></span>
     </Link>
   )
 }

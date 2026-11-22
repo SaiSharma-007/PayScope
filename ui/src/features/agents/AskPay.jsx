@@ -8,6 +8,11 @@ import {
   Square,
   Trash2,
 } from 'lucide-react'
+import { Button } from '../../components/ui/button'
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from '../../components/ui/input-group'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '../../components/ui/sheet'
+import { SelectPortalContext } from '../../components/SelectPortalContext'
+import { formatValue } from '../workspace/insightViews'
 import { request } from '../../lib/http'
 import { useAuth } from '../auth/useAuth'
 import { readEvents } from './stream'
@@ -22,6 +27,7 @@ import './agent-polish.css'
 
 const chatsPath = '/agent/conversations'
 const runsPath = '/agent/runs'
+const compactReportQuery = '(max-width: 1239px)'
 const examples = [
   'Which Engineering role in India has the highest median base pay in INR?',
   'What is the average annual base pay in Germany in EUR?',
@@ -44,11 +50,11 @@ function ReportCard({ report, conversation, runId, completed, savedId }) {
     ...(conversation ? { chat: conversation } : {}),
   })
   return (
-    <div className="agent-evidence">
+    <section className="agent-evidence" aria-label="Source report figures">
       <div>
-        <strong>{report.report_type === 'workforce_headcount' ? 'Workforce headcount' : 'Annual base pay'}</strong>
+        <h2>{report.report_type === 'workforce_headcount' ? 'Workforce headcount' : 'Annual base pay'}</h2>
         <span>
-          {[report.currency_code, `${report.rows.length} report groups`]
+          {[report.currency_code, `${report.rows.length} ${report.rows.length === 1 ? 'group' : 'groups'}`]
             .filter(Boolean)
             .join(' · ')}
         </span>
@@ -62,7 +68,7 @@ function ReportCard({ report, conversation, runId, completed, savedId }) {
       <ReportChart report={report} onViewChange={setChartView} />
       {report.rows.length > 0 && (
         <details>
-          <summary>View saved figures</summary>
+          <summary>Exact values</summary>
           <div className="agent-table-scroll">
             <table>
               <thead>
@@ -78,8 +84,13 @@ function ReportCard({ report, conversation, runId, completed, savedId }) {
                     <th scope="row">
                       {row.group_name || 'All matching employees'}
                     </th>
-                    <td>{row.headcount}</td>
-                    {report.report_type !== 'workforce_headcount' && <><td>{row.mean}</td><td>{row.median}</td></>}
+                    <td>{formatValue(row.headcount, 'count')}</td>
+                    {report.report_type !== 'workforce_headcount' && (
+                      <>
+                        <td>{formatValue(row.mean, 'money', row.currency_code || report.currency_code)}</td>
+                        <td>{formatValue(row.median, 'money', row.currency_code || report.currency_code)}</td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -87,7 +98,7 @@ function ReportCard({ report, conversation, runId, completed, savedId }) {
           </div>
         </details>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -102,6 +113,20 @@ function ChatThread({ id, onAccepted, onChanged }) {
   const [status, setStatus] = useState(initial?.active_run_id ? 'streaming' : id && !initial ? 'loading' : 'ready')
   const [error, setError] = useState('')
   const [stopping, setStopping] = useState(false)
+  const [reportRun, setReportRun] = useState(null)
+  const [compactReport, setCompactReport] = useState(() => matchMedia(compactReportQuery).matches)
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportTrigger = useRef(null)
+  const [reportPortal, setReportPortal] = useState(null)
+  useEffect(() => {
+    const media = matchMedia(compactReportQuery)
+    function changeLayout(event) {
+      setCompactReport(event.matches)
+      setReportOpen(false)
+    }
+    media.addEventListener('change', changeLayout)
+    return () => media.removeEventListener('change', changeLayout)
+  }, [])
   const [revision, setRevision] = useState(0)
   const controller = useRef(null)
   const cursor = useRef(events.at(-1)?.sequence || 0)
@@ -264,6 +289,7 @@ function ChatThread({ id, onAccepted, onChanged }) {
     setPending(submission)
     setQuestion('')
     setError('')
+    setReportRun(null)
     setEvents([])
     cursor.current = 0
     setStatus('streaming')
@@ -361,6 +387,55 @@ function ChatThread({ id, onAccepted, onChanged }) {
         .filter((event) => event.type === 'token')
         .map((event) => event.payload.text)
         .join('')
+  const liveReport = finalEvent?.payload.report ||
+    (!finalEvent ? events.findLast((event) => event.type === 'report_ready')?.payload : null)
+  const reports = transcript.flatMap((turn) => turn.messages
+    .filter((message) => message.structured_content?.report)
+    .map((message) => ({
+      runId: turn.run_id,
+      savedId: turn.saved_report_id,
+      completed: turn.status === 'completed',
+      report: message.structured_content.report,
+    })))
+  if (liveReport) reports.push({
+    runId: run,
+    completed: finalEvent?.payload.status === 'completed',
+    report: liveReport,
+  })
+  const selectedReport = reports.find((item) => item.runId === reportRun) || reports.at(-1)
+  const reportCard = selectedReport && (
+    <ReportCard key={selectedReport.runId} {...selectedReport} conversation={id} />
+  )
+
+  function reportLink(runId) {
+    const label = 'View source report'
+    if (compactReport) return (
+      <SheetTrigger asChild>
+        <Button type="button" variant="ghost" className="agent-source-link" onClick={(event) => {
+          reportTrigger.current = event.currentTarget
+          setReportRun(runId)
+        }}>
+          <ArrowUpRight data-icon="inline-start" /> {label}
+        </Button>
+      </SheetTrigger>
+    )
+    return (
+      <Button asChild variant="ghost" className="agent-source-link">
+        <a href="#agent-source-report" onClick={(event) => {
+          event.preventDefault()
+          setReportRun(runId)
+          const panel = document.getElementById('agent-source-report')
+          if (panel) {
+            panel.scrollTop = 0
+            panel.focus({ preventScroll: true })
+          }
+        }}>
+          <ArrowUpRight data-icon="inline-start" /> {label}
+        </a>
+      </Button>
+    )
+  }
+
   const activeStage = [...events]
     .reverse()
     .find(
@@ -386,6 +461,7 @@ function ChatThread({ id, onAccepted, onChanged }) {
     if (list && atEnd.current) list.scrollTop = list.scrollHeight
   }, [events, pending, chat])
   return (
+    <Sheet open={reportOpen} onOpenChange={setReportOpen}>
     <section className="agent-panel agent-thread" aria-label="Pay conversation">
       {status === 'loading' && <p role="status">Loading conversation…</p>}
       {status === 'load-error' && (
@@ -445,13 +521,7 @@ function ChatThread({ id, onAccepted, onChanged }) {
                 <strong>{message.role === 'user' ? 'You' : 'PayScope'}</strong>
                 {message.role === 'assistant' && <Activity events={turn.events || []} status={turn.status} />}
                 <p>{message.text || (message.role === 'assistant' ? 'This response ended before an answer was available.' : '')}</p>
-                <ReportCard
-                  runId={turn.run_id}
-                  savedId={turn.saved_report_id}
-                  completed={turn.status === 'completed'}
-                  report={message.structured_content?.report}
-                  conversation={id}
-                />
+                {message.structured_content?.report && reportLink(turn.run_id)}
               </div>
             ))}
             {!turn.messages.some((message) => message.role === 'assistant') && (
@@ -472,25 +542,14 @@ function ChatThread({ id, onAccepted, onChanged }) {
         {(answer || events.length > 0 || streaming) && (
           <div className="agent-message assistant">
             <strong>PayScope</strong>
-            <Activity events={events} active={streaming} status={lastStatus} />
+            <Activity events={events} active={streaming} status={status === 'disconnected' ? status : lastStatus} />
             {streaming && !answer && <p className="agent-working">{statusText}</p>}
             <p>{answer}</p>
-            <ReportCard
-              runId={run}
-              completed={finalEvent?.payload.status === 'completed'}
-              report={
-                finalEvent?.payload.report ||
-                (!finalEvent
-                  ? events.findLast((event) => event.type === 'report_ready')
-                      ?.payload
-                  : null)
-              }
-              conversation={id}
-            />
+            {liveReport && reportLink(run)}
           </div>
         )}
       </div>
-      <p className="agent-status" role="status">
+      <p className="sr-only" role="status">
         {statusText}
       </p>
       {error && (
@@ -545,9 +604,8 @@ function ChatThread({ id, onAccepted, onChanged }) {
         <label className="sr-only" htmlFor="pay-question">
           {clarification ? 'Answer the clarification' : 'Your pay question'}
         </label>
-        <div>
-          <textarea
-            className="resize-none"
+        <InputGroup>
+          <InputGroupTextarea
             ref={input}
             id="pay-question"
             value={question}
@@ -563,29 +621,52 @@ function ChatThread({ id, onAccepted, onChanged }) {
             }}
             onChange={(event) => setQuestion(event.target.value)}
           />
-          {(streaming || status === 'disconnected') && run ? (
-            <button
-              type="button"
-              className="button secondary"
-              onClick={stop}
-              disabled={stopping}
-            >
-              <Square size={15} aria-hidden="true" /> Stop
-            </button>
-          ) : (
-            <button
-              className="button primary"
-              disabled={sendDisabled || !question.trim()}
-              aria-label="Ask"
-              title="Send question"
-            >
-              <ArrowUp size={17} aria-hidden="true" /> Ask
-            </button>
-          )}
-        </div>
+          <InputGroupAddon align="inline-end">
+            {(streaming || status === 'disconnected') && run ? (
+              <Button
+                type="button"
+                variant="secondary" className="agent-send-control"
+                onClick={stop}
+                disabled={stopping}
+              >
+                <Square data-icon="inline-start" aria-hidden="true" /> Stop
+              </Button>
+            ) : (
+              <Button
+                className="agent-send-control"
+                disabled={sendDisabled || !question.trim()}
+                aria-label="Ask"
+                title="Send question"
+              >
+                <ArrowUp data-icon="inline-start" aria-hidden="true" /> Ask
+              </Button>
+            )}
+          </InputGroupAddon>
+        </InputGroup>
         <small>Enter to send · Shift + Enter for a new line</small>
       </form>
     </section>
+    {selectedReport && (compactReport ? (
+      <SheetContent
+        className="agent-source-sheet"
+        ref={setReportPortal}
+        aria-describedby={undefined}
+        onCloseAutoFocus={(event) => {
+          if (reportTrigger.current?.isConnected) {
+            event.preventDefault()
+            reportTrigger.current.focus({ preventScroll: true })
+          }
+        }}
+      >
+        <SheetTitle className="sr-only">Source report</SheetTitle>
+        <SelectPortalContext value={reportPortal}>{reportCard}</SelectPortalContext>
+      </SheetContent>
+    ) : (
+      <aside id="agent-source-report" className="agent-source-panel" aria-label="Source report" tabIndex={-1}>
+        {reportCard}
+      </aside>
+    ))}
+    </Sheet>
   )
 }
 
@@ -655,15 +736,16 @@ export default function AskPay() {
           <Link to="/insights">Salary insights</Link>
           <h1 tabIndex={-1}>Ask about pay</h1>
         </div>
-        <button
-          className="button secondary"
+        <Button
+          size="lg"
+          className="agent-new-chat"
           onClick={() => {
             setNewChat((value) => value + 1)
             select(null)
           }}
         >
-          <Plus size={17} aria-hidden="true" /> New chat
-        </button>
+          <Plus data-icon="inline-start" aria-hidden="true" /> New chat
+        </Button>
       </header>
       <div className="agent-workspace">
         <nav

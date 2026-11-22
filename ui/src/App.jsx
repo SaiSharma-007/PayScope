@@ -78,7 +78,8 @@ function Pages() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      {!pathname.startsWith('/rules') &&
+      {pathname !== '/' && pathname !== '/sign-in' &&
+        !pathname.startsWith('/rules') &&
         !pathname.startsWith('/insights/') &&
         !pathname.startsWith('/admin/') &&
         !pathname.startsWith('/saved-reports') &&

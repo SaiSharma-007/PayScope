@@ -1,6 +1,17 @@
 import { useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, LockKeyhole } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Moon } from 'lucide-react'
+import Brand from '@/components/Brand'
+import ThemeSwitch from '@/components/ThemeSwitch'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card'
+import { Field, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupInput, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group'
+import { Spinner } from '@/components/ui/spinner'
+import './sign-in.css'
 import { useAuth } from './useAuth'
 
 export default function SignIn() {
@@ -10,10 +21,9 @@ export default function SignIn() {
   const [visible, setVisible] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState({})
-  const [failure, setFailure] = useState('')
+  const [retryMessage, setRetryMessage] = useState('')
   const emailRef = useRef(null)
   const passwordRef = useRef(null)
-  const errorRef = useRef(null)
   const submitting = useRef(false)
   if (auth.session) return <Navigate to="/employees" replace />
 
@@ -28,23 +38,29 @@ export default function SignIn() {
       next.email = 'Enter a valid email address.'
     if (!password) next.password = 'Enter your password.'
     setErrors(next)
-    setFailure('')
     if (Object.keys(next).length) {
       ;(next.email ? emailRef : passwordRef).current.focus()
       return
     }
+    toast.dismiss('sign-in-error')
+    setRetryMessage('')
     submitting.current = true
     setBusy(true)
     try {
       await auth.signIn(email, password)
       navigate('/employees', { replace: true })
     } catch (error) {
-      setFailure(
-        error.status === 401
-          ? 'That email and password didn’t match. Please try again.'
-          : error.message,
-      )
-      window.requestAnimationFrame(() => errorRef.current?.focus())
+      const message = error.status === 401
+        ? { title: 'Email or password is incorrect', description: 'Check both fields and try again.' }
+        : error.status === 429
+          ? { title: 'Too many attempts', description: 'Wait a moment before trying to sign in again.' }
+          : error.status === 0
+            ? { title: 'Could not connect', description: 'Check your connection and try again.' }
+            : error.status >= 500
+              ? { title: 'Sign-in is temporarily unavailable', description: 'Try again shortly.' }
+              : { title: 'Could not sign in', description: 'Please try again.' }
+      setRetryMessage(`${message.title}. ${message.description}`)
+      toast.error(message.title, { id: 'sign-in-error', description: message.description })
     } finally {
       submitting.current = false
       setBusy(false)
@@ -52,131 +68,66 @@ export default function SignIn() {
   }
 
   return (
-    <main id="main" className="page auth-page">
-      <section className="auth-intro">
-        <span className="eyebrow">YOUR HR WORKSPACE</span>
-        <h1>
-          A clearer picture.
-          <br />
-          <span>A calmer day.</span>
-        </h1>
-        <p>
-          Your people and their pay,
-          <br />
-          with room to see what matters.
-        </p>
-        <div className="auth-illustration" aria-hidden="true">
-          <div className="orbital-wash">
-            <span />
-          </div>
-          <div className="auth-example panel">
-            <div className="example-person">
-              <span className="avatar">AR</span>
-              <span>
-                <strong>Ananya Rao</strong>
-                <small>Software Engineer · India</small>
-              </span>
-            </div>
-            <hr />
-            <span className="small-label">Annual gross base salary</span>
-            <strong className="example-salary">INR 1,450,000.00</strong>
-            <span className="example-note">
-              A fictional record, in perspective.
-            </span>
-          </div>
-        </div>
-      </section>
-      <section className="panel sign-in-panel" aria-labelledby="signin-title">
-        <span className="icon-tile">
-          <LockKeyhole size={22} aria-hidden="true" />
-        </span>
-        <h2 id="signin-title">Welcome back.</h2>
-        <p>Sign in to your HR workspace.</p>
-        {location.state?.expired && (
-          <p className="notice" role="status">
-            Sign in to continue to Employees.
-          </p>
-        )}
-        <form onSubmit={submit} noValidate aria-busy={busy}>
-          {failure && (
-            <div
-              className="error-banner"
-              role="alert"
-              tabIndex={-1}
-              ref={errorRef}
-            >
-              {failure}
-            </div>
-          )}
-          <div className="field">
-            <label htmlFor="email">Email address</label>
-            <input
-              ref={emailRef}
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              defaultValue="hr@payscope.example"
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? 'email-error' : undefined}
-              disabled={busy}
-            />
-            {errors.email && (
-              <p id="email-error" className="error-message">
-                {errors.email}
-              </p>
+    <div className="payscope-signin">
+      <header className="signin-header">
+        <Brand />
+        <label className="signin-theme-toggle">
+          <Moon size={16} aria-hidden="true" />
+          <span>Dark theme</span>
+          <ThemeSwitch compact />
+        </label>
+      </header>
+      <main id="main" className="signin-main">
+        <Card className="signin-card">
+          <CardHeader>
+            <h1>Sign in to PayScope</h1>
+            <CardDescription>Open your HR workspace to manage salaries and review compensation.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {location.state?.expired && (
+              <Alert role="status"><AlertDescription>Sign in to continue to Employees.</AlertDescription></Alert>
             )}
-          </div>
-          <div className="field">
-            <label htmlFor="password">Password</label>
-            <div className="password-field">
-              <input
-                ref={passwordRef}
-                id="password"
-                name="password"
-                type={visible ? 'text' : 'password'}
-                autoComplete="current-password"
-                aria-invalid={Boolean(errors.password)}
-                aria-describedby={
-                  errors.password ? 'password-error' : undefined
-                }
-                disabled={busy}
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setVisible(!visible)}
-                aria-label={visible ? 'Hide password' : 'Show password'}
-                aria-pressed={visible}
-              >
-                {visible ? (
-                  <EyeOff size={19} aria-hidden="true" />
-                ) : (
-                  <Eye size={19} aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            {errors.password && (
-              <p id="password-error" className="error-message">
-                {errors.password}
-              </p>
-            )}
-          </div>
-          <button
-            className="button primary submit-button"
-            type="submit"
-            disabled={busy}
-          >
-            {busy ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-        <p className="demo-note">
-          This workspace contains fictional employee data.
-        </p>
-        <Link className="text-link return-link" to="/">
-          Back to PayScope
-        </Link>
-      </section>
-    </main>
+            <form onSubmit={submit} noValidate aria-busy={busy}>
+              <FieldGroup>
+                <Field data-invalid={Boolean(errors.email)} data-disabled={busy}>
+                  <FieldLabel htmlFor="email">Email address</FieldLabel>
+                  <Input ref={emailRef} id="email" name="email" type="email" autoComplete="username"
+                    defaultValue="hr@payscope.example" aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'email-error' : undefined} disabled={busy} />
+                  {errors.email && <FieldError id="email-error">{errors.email}</FieldError>}
+                </Field>
+                <Field data-invalid={Boolean(errors.password)} data-disabled={busy}>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput ref={passwordRef} id="password" name="password"
+                      type={visible ? 'text' : 'password'} autoComplete="current-password"
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={errors.password ? 'password-error' : undefined} disabled={busy} />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton type="button" size="icon-sm" disabled={busy}
+                        onClick={() => setVisible(value => !value)}
+                        aria-label={visible ? 'Hide password' : 'Show password'}>
+                        {visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  {errors.password && <FieldError id="password-error">{errors.password}</FieldError>}
+                </Field>
+                <Button type="submit" disabled={busy} data-signin-action=""
+                  aria-describedby={retryMessage ? 'signin-retry' : undefined}>
+                  {busy ? 'Signing in…' : 'Sign in'}
+                  {busy ? <Spinner data-icon="inline-end" aria-hidden="true" /> : <ArrowRight data-icon="inline-end" aria-hidden="true" />}
+                </Button>
+                {retryMessage && <p id="signin-retry" className="signin-retry">{retryMessage}</p>}
+              </FieldGroup>
+            </form>
+            <p className="signin-demo-note">This workspace contains fictional employee data.</p>
+          </CardContent>
+        </Card>
+        <Button asChild variant="link">
+          <Link to="/"><ArrowLeft data-icon="inline-start" /> Back to PayScope</Link>
+        </Button>
+      </main>
+    </div>
   )
 }

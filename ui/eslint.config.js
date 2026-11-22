@@ -18,4 +18,15 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    files: ['src/components/ui/*.jsx'],
+    rules: {
+      'react-refresh/only-export-components': ['error', {
+        allowExportNames: [
+          'buttonVariants', 'navigationMenuTriggerStyle', 'toggleVariants',
+          'useMessageScroller', 'useMessageScrollerScrollable', 'useMessageScrollerVisibility',
+        ],
+      }],
+    },
+  },
 ])

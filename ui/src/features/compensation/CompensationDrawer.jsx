@@ -1,3 +1,5 @@
+import { Button } from '../../components/ui/button'
+import { Spinner } from '../../components/ui/spinner'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, X } from 'lucide-react'
@@ -43,7 +45,8 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
   const [baseline, setBaseline] = useState(null)
   const [saved, setSaved] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
+  const busy = pendingAction !== null
   const [equityDirty, setEquityDirty] = useState(false)
   const [equityBusy, setEquityBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -58,6 +61,15 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
   const serialized = JSON.stringify(draft)
   const dirty = baseline !== null && serialized !== baseline
   const previewReady = preview?.key === serialized
+  const previewLabel = pendingAction === 'preview'
+    ? 'Previewing…'
+    : !dirty
+      ? 'Preview changes'
+      : previewReady
+        ? 'Preview ready'
+        : preview
+          ? 'Refresh preview'
+          : 'Preview changes'
   const navigationGuard = useUnsavedChanges(
     dirty || equityDirty || equityBusy || busy,
   )
@@ -164,7 +176,6 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
   }, [api, draft.rule_version_id, ruleRetry])
   function change(patch) {
     setDraft((previous) => ({ ...previous, ...patch }))
-    setPreview(null)
     setSuccess(false)
     setError(null)
   }
@@ -184,9 +195,9 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
   }
   async function calculatePreview(event) {
     event.preventDefault()
-    if (submitLock.current || equityDirty || equityBusy) return
+    if (submitLock.current || equityDirty || equityBusy || !dirty || previewReady) return
     submitLock.current = true
-    setBusy(true)
+    setPendingAction('preview')
     setError(null)
     try {
       const result = await api(
@@ -200,7 +211,7 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
         dialog.current?.querySelector('.comp-error')?.focus(),
       )
     } finally {
-      setBusy(false)
+      setPendingAction(null)
       submitLock.current = false
     }
   }
@@ -213,7 +224,7 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
     )
       return
     submitLock.current = true
-    setBusy(true)
+    setPendingAction('save')
     setError(null)
     try {
       const result = await api(`/employees/${employee.id}/compensation`, {
@@ -234,7 +245,7 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
         dialog.current?.querySelector('.comp-error')?.focus(),
       )
     } finally {
-      setBusy(false)
+      setPendingAction(null)
       submitLock.current = false
     }
   }
@@ -276,33 +287,35 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                 {employee.employee_code} · {employee.country_name}
               </p>
             </div>
-            <button
+            <Button
               ref={closeButton}
-              className="icon-button"
+              variant="secondary"
+              size="icon-lg"
+              className="comp-close-control"
               type="button"
               aria-label="Close compensation"
               disabled={busy || equityBusy}
               onClick={close}
             >
-              <X size={20} aria-hidden="true" />
-            </button>
+              <X aria-hidden="true" />
+            </Button>
           </header>
           {loading ? (
             <div className="comp-loading" role="status">
-              Loading compensation…
+              <Spinner /> Loading compensation…
             </div>
           ) : (
             <form noValidate onSubmit={calculatePreview}>
               <div className="comp-drawer-content">
                 <ErrorSummary error={error} onReload={requestReload} />
                 {!baseline && error && (
-                  <button
-                    className="button secondary"
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={reload}
                   >
                     Try again
-                  </button>
+                  </Button>
                 )}
                 {baseline && (
                   <>
@@ -343,7 +356,7 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                               title="Saved annual breakdown"
                             />
                           </details>
-                          <button
+                          <Button
                             type="button"
                             className="equity-jump"
                             onClick={() => {
@@ -354,7 +367,7 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                             }}
                           >
                             Equity and annual CTC
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
@@ -375,13 +388,13 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                     )}
                     <ErrorSummary error={reference.error} />
                     {reference.error && (
-                      <button
+                      <Button
                         type="button"
                         className="text-link"
                         onClick={reference.retry}
                       >
                         Retry reference data
-                      </button>
+                      </Button>
                     )}
                     <fieldset className="comp-edit-fields" disabled={busy}>
                       <legend>Package details</legend>
@@ -450,13 +463,13 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                       </p>
                       <ErrorSummary error={rulesError} />
                       {rulesError && (
-                        <button
+                        <Button
                           className="text-link"
                           type="button"
                           onClick={() => setRuleRetry((value) => value + 1)}
                         >
                           Retry rules
-                        </button>
+                        </Button>
                       )}
                       {isRule ? (
                         !definitions ? (
@@ -646,30 +659,36 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                 )}
               </div>
               <footer className="comp-drawer-footer">
-                <span>
-                  {dirty || equityDirty
-                    ? 'Unsaved changes'
-                    : saved
-                      ? 'All changes saved'
-                      : 'New package'}
+                <span role="status">
+                  {equityDirty
+                    ? 'Save or discard equity changes first'
+                    : !dirty
+                      ? saved ? 'All changes saved' : 'Edit the package to preview'
+                      : previewReady
+                        ? 'Preview ready to review'
+                        : preview
+                          ? 'Changes since last preview'
+                          : 'Unsaved changes · preview required'}
                 </span>
                 <div>
-                  <button
-                    className={`button ${previewReady ? 'secondary' : 'primary'}`}
+                  <Button
+                    variant={dirty && !previewReady ? 'default' : 'secondary'}
                     type="submit"
                     disabled={
                       busy ||
                       equityBusy ||
                       equityDirty ||
-                      !baseline ||
+                      !dirty ||
+                      previewReady ||
                       (isRule && !definitions) ||
                       !reference.data
                     }
                   >
-                    {busy ? 'Working…' : 'Preview changes'}
-                  </button>
-                  <button
-                    className={`button ${previewReady ? 'primary' : 'secondary'}`}
+                    {pendingAction === 'preview' && <Spinner data-icon="inline-start" />}
+                    {previewLabel}
+                  </Button>
+                  <Button
+                    variant={previewReady ? 'default' : 'secondary'}
                     type="button"
                     disabled={
                       busy ||
@@ -680,8 +699,9 @@ export default function CompensationDrawer({ employee, onClose, onSaved }) {
                     }
                     onClick={save}
                   >
-                    Save compensation
-                  </button>
+                    {pendingAction === 'save' && <Spinner data-icon="inline-start" />}
+                    {pendingAction === 'save' ? 'Saving…' : 'Save compensation'}
+                  </Button>
                 </div>
               </footer>
             </form>

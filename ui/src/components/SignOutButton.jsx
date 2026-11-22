@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
+import { Button } from './ui/button'
 import { useAuth } from '../features/auth/useAuth'
 
 export default function SignOutButton() {
@@ -23,16 +24,17 @@ export default function SignOutButton() {
   }
   return (
     <div className="sign-out">
-      <button
-        className="button secondary compact"
+      <Button
+        variant="secondary"
+        className="sign-out-control"
         type="button"
         title="Sign out"
         onClick={logout}
         disabled={busy}
       >
-        <LogOut size={16} aria-hidden="true" />
-        {busy ? 'Signing out…' : 'Sign out'}
-      </button>
+        <LogOut data-icon="inline-start" aria-hidden="true" />
+        <span>{busy ? 'Signing out…' : 'Sign out'}</span>
+      </Button>
       {error && (
         <p className="sign-out-error error-message" role="alert">
           {error}

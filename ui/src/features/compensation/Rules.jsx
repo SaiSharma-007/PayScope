@@ -1,6 +1,9 @@
+import { Button } from '../../components/ui/button'
+import { FieldGroup } from '../../components/ui/field'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Plus, SlidersHorizontal } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import SelectField from '../../components/SelectField'
 import Skeleton from '../../components/Skeleton'
 import { ErrorSummary } from './Fields'
@@ -26,35 +29,18 @@ export default function Rules() {
   }
   function changePage(page) {
     results.current?.focus({ preventScroll: true })
-    results.current?.scrollIntoView({ block: 'start' })
     setParams({ ...Object.fromEntries(params), page })
   }
   return (
     <main id="main" className="page rules-page">
       <div className="workspace-heading">
         <div>
-          <span className="eyebrow">COMPENSATION RULES</span>
-          <h1>A structure for every package.</h1>
-          <p>Define the components. See how every amount is calculated.</p>
+          <h1>Compensation rules</h1>
         </div>
-        <Link className="button primary" to="/rules/new">
-          <Plus size={18} aria-hidden="true" />
-          Create rule
-        </Link>
+        <Button asChild size="lg"><Link to="/rules/new"><Plus data-icon="inline-start" />New rule</Link></Button>
       </div>
-      <section className="panel rules-panel" aria-labelledby="rules-title">
-        <div className="comp-section-heading">
-          <div className="title-with-icon">
-            <span className="icon-tile">
-              <SlidersHorizontal size={21} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 id="rules-title">Company rules</h2>
-              <p>Country-specific, reusable, and versioned.</p>
-            </div>
-          </div>
-        </div>
-        <div className="rules-filters">
+      <section className="rules-panel" aria-label="Company rules">
+        <FieldGroup className="rules-filters">
           <SelectField
             id="rules-country"
             label="Country"
@@ -90,20 +76,20 @@ export default function Rules() {
             ]}
             onChange={(value) => filter('active', value)}
           />
-        </div>
+        </FieldGroup>
         {reference.error && (
           <div>
             <ErrorSummary error={reference.error} />
-            <button className="text-link" onClick={reference.retry}>
+            <Button className="text-link" onClick={reference.retry}>
               Retry filter options
-            </button>
+            </Button>
           </div>
         )}
         <ErrorSummary error={error} />
         {error && (
-          <button className="button secondary" onClick={retry}>
+          <Button variant="secondary" onClick={retry}>
             Try again
-          </button>
+          </Button>
         )}
         <p className="comp-status" role="status">
           {loading
@@ -112,6 +98,29 @@ export default function Rules() {
               ? `${data.total} ${data.total === 1 ? 'rule' : 'rules'}`
               : ''}
         </p>
+        {data && !error && data.total > 50 && (
+          <div className="pagination rules-pagination">
+            <span>
+              {loading ? <Skeleton width="3rem" /> : `Page ${data.page} of ${Math.ceil(data.total / 50)}`}
+            </span>
+            <div>
+              <Button
+                variant="secondary"
+                disabled={loading || data.page <= 1}
+                onClick={() => changePage(data.page - 1)}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={loading || data.page * 50 >= data.total}
+                onClick={() => changePage(data.page + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
         <div
           className="rule-list"
           role="region"
@@ -139,52 +148,40 @@ export default function Rules() {
               <p>Create a rule or choose different filters.</p>
             </div>
           ) : (
-            data?.items.map((rule) => (
-              <Link
-                className="rule-list-row"
-                key={rule.id}
-                to={`/rules/${rule.id}`}
-              >
-                <span className="rule-country">{rule.country_code}</span>
-                <span className="rule-list-name">
-                  <strong>{rule.name}</strong>
-                  <small>
-                    {rule.currency_code} · Version {rule.latest_version}
-                  </small>
-                </span>
-                <span
-                  className={`rule-state${rule.active ? ' is-active' : ''}`}
-                >
-                  {rule.active ? 'Active' : 'Inactive'}
-                </span>
-                <ArrowRight size={18} aria-hidden="true" />
-              </Link>
-            ))
+            <Table className="rules-table" role="table">
+              <TableHeader role="rowgroup">
+                <TableRow role="row">
+                  <TableHead role="columnheader" scope="col">Rule</TableHead>
+                  <TableHead role="columnheader" scope="col">Country</TableHead>
+                  <TableHead role="columnheader" scope="col">Currency</TableHead>
+                  <TableHead role="columnheader" scope="col">Latest version</TableHead>
+                  <TableHead role="columnheader" scope="col">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody role="rowgroup">
+                {data?.items.map((rule) => (
+                  <TableRow role="row" key={rule.id}>
+                    <TableCell role="cell">
+                      <Button asChild variant="ghost" className="rule-name-link">
+                        <Link to={`/rules/${rule.id}`}>
+                          {rule.name}<ArrowRight data-icon="inline-end" />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                    <TableCell role="cell" data-label="Country">{reference.data?.countries.find((country) => country.code === rule.country_code)?.name || rule.country_code}</TableCell>
+                    <TableCell role="cell" data-label="Currency">{rule.currency_code}</TableCell>
+                    <TableCell role="cell" data-label="Latest version">v{rule.latest_version}</TableCell>
+                    <TableCell role="cell" data-label="Status">
+                      <span className="rule-state" data-active={rule.active}>
+                        {rule.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </div>
-        {data && !error && data.total > 50 && (
-          <div className="pagination">
-            <span>
-              {loading ? <Skeleton width="3rem" /> : `Page ${data.page}`}
-            </span>
-            <div>
-              <button
-                className="button secondary compact"
-                disabled={loading || data.page <= 1}
-                onClick={() => changePage(data.page - 1)}
-              >
-                Previous
-              </button>
-              <button
-                className="button secondary compact"
-                disabled={loading || data.page * 50 >= data.total}
-                onClick={() => changePage(data.page + 1)}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
         <p className="comp-footnote">
           Rules describe your company’s package structure. They do not
           automatically apply statutory contribution or tax rates.

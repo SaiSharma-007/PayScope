@@ -1,3 +1,4 @@
+import { Button } from '../../components/ui/button'
 import { Plus, Trash2 } from 'lucide-react'
 import { useDeleteConfirmation } from '../../components/useDeleteConfirmation'
 import SelectField from '../../components/SelectField'
@@ -139,7 +140,7 @@ export default function ComponentEditor({
               />
               Include in company cost
             </label>
-            <button
+            <Button
               type="button"
               className="text-link remove-component"
               disabled={disabled}
@@ -147,19 +148,19 @@ export default function ComponentEditor({
             >
               <Trash2 size={15} aria-hidden="true" />
               Remove component {index + 1}
-            </button>
+            </Button>
           </div>
         </fieldset>
       ))}
-      <button
+      <Button
         type="button"
-        className="button secondary"
+        variant="secondary"
         disabled={disabled || components.length >= 32}
         onClick={() => onChange([...components, newComponent()])}
       >
         <Plus size={17} aria-hidden="true" />
         Add component
-      </button>
+      </Button>
     </section>
   )
 }
