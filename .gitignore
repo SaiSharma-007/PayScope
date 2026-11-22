@@ -1,5 +1,6 @@
 # Local agent scratch work
 .codex/
+.imp**
 
 # Secrets and local configuration
 .env
