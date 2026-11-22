@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -17,7 +18,7 @@ from payscope.analytics.cache import create_report_cache
 from payscope.analytics.router import router as analytics_router
 from payscope.auth.router import router as auth_router
 from payscope.compensation.router import router as compensation_router
-from payscope.config import Settings
+from payscope.config import Settings, WebSettings
 from payscope.database import check_database, create_database_engine
 from payscope.employees.router import router as employees_router
 from payscope.logging import (
@@ -66,6 +67,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PayScope", lifespan=lifespan)
 app.add_middleware(RequestLoggingMiddleware)
+ui_origin = WebSettings().ui_origin
+if ui_origin:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[ui_origin],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_headers=["Content-Type", "X-CSRF-Token", "Idempotency-Key"],
+    )
 api = APIRouter(prefix="/api")
 api.include_router(saved_reports_router)
 api.include_router(agent_history_router)

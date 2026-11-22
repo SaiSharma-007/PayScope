@@ -7,7 +7,7 @@ from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
 
 
-class Settings(BaseSettings):
+class WebSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -15,6 +15,27 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
 
+    ui_origin: str = ""
+
+    @field_validator("ui_origin")
+    @classmethod
+    def validate_ui_origin(cls, value: str) -> str:
+        origin = value.strip().rstrip("/")
+        if not origin:
+            return ""
+        url = urlsplit(origin)
+        if (
+            url.scheme not in {"http", "https"}
+            or not url.hostname
+            or url.username is not None
+            or "*" in url.netloc
+            or origin != f"{url.scheme}://{url.netloc}"
+        ):
+            raise ValueError("UI_ORIGIN must be a single HTTP or HTTPS origin")
+        return origin
+
+
+class Settings(WebSettings):
     database_url: SecretStr
     redis_url: SecretStr | None = None
     session_ttl_seconds: int = Field(default=28_800, ge=60, le=86_400)

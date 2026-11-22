@@ -96,7 +96,9 @@ uv run --locked pytest
 
 Set `TEST_DATABASE_URL` to a separate, empty PostgreSQL database for backend integration tests. Use a disposable Redis instance for cache and agent integration tests. The UI guide documents the optional live tests and the fixture data they require. [UI verification](ui/README.md) · [Backend verification](backend/README.md#hr-api)
 
-For deployment, serve the frontend and `/api` from the same HTTPS origin. Route frontend deep links to `index.html` and configure the proxy to pass agent SSE responses through without buffering.
+For same-origin deployment, serve the frontend and `/api` from the same HTTPS origin and pass agent SSE responses through without buffering. Leave `VITE_API_ORIGIN` and `UI_ORIGIN` unset to use relative API URLs.
+
+For separate deployments, set `VITE_API_ORIGIN=https://api.example.com` in the UI build environment or `ui/.env`, and set `UI_ORIGIN=https://app.example.com` in the backend environment or `backend/.env`. Use HTTPS sibling domains under the same registered domain so the browser can send the session cookie. Supply origins without paths and rebuild the UI after changing its value. In both setups, route frontend deep links to `index.html`.
 
 ## Repository guide
 

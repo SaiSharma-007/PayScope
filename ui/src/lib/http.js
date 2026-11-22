@@ -1,3 +1,5 @@
+const apiOrigin = (import.meta.env.VITE_API_ORIGIN ?? '').trim().replace(/\/+$/, '')
+
 export class ApiError extends Error {
   constructor(message, status, fields = [], code = null) {
     super(message)
@@ -10,7 +12,7 @@ export class ApiError extends Error {
 export async function request(path, { csrf, stream = false, ...options } = {}) {
   let response
   try {
-    response = await fetch(`/api${path}`, {
+    response = await fetch(`${apiOrigin}/api${path}`, {
       ...options,
       signal: stream
         ? options.signal
@@ -18,7 +20,7 @@ export async function request(path, { csrf, stream = false, ...options } = {}) {
             AbortSignal.timeout(15000),
             ...(options.signal ? [options.signal] : []),
           ]),
-      credentials: 'same-origin',
+      credentials: apiOrigin ? 'include' : 'same-origin',
       headers: {
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
