@@ -225,6 +225,32 @@ test('SSE reader handles fragmented UTF-8, comments, and CRLF', async () => {
   assert.deepEqual(events, [{ text: '₹' }])
 })
 
+test('unavailable chat links allow starting a new chat', async () => {
+  const page = await browser.newPage()
+  const missing = 'f1c97cee-2d1c-485c-ae29-ebcb5cf5ce91'
+  const lookups = []
+  await page.route('**/api/**', (route) => {
+    const { pathname } = new URL(route.request().url())
+    if (pathname.endsWith('/auth/session')) return route.fulfill({ json: session(false) })
+    if (pathname.endsWith('/conversations')) return route.fulfill({ json: { items: [] } })
+    lookups.push(pathname)
+    return route.fulfill({ status: 404 })
+  })
+  try {
+    for (const id of [missing, '../runs']) {
+      await page.goto(new URL(`/insights/ask?chat=${encodeURIComponent(id)}`, origin).href)
+      await page.getByRole('heading', { name: 'This conversation is unavailable' }).waitFor()
+      await page.getByRole('button', { name: 'New chat', exact: true }).click()
+      await page.getByRole('heading', { name: 'What would you like to know about pay?' }).waitFor()
+      assert.equal(new URL(page.url()).searchParams.has('chat'), false)
+    }
+    assert.equal(lookups.length, 1)
+    assert.ok(lookups[0].endsWith(`/conversations/${missing}`))
+  } finally {
+    await page.close()
+  }
+})
+
 test('workforce charts retain zero-count countries and open a currency-free report', async () => {
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
   const counts = { report_type: 'workforce_headcount', metric: 'headcount', operation: 'lowest', revision: 4, filters: { group_by: 'country' }, rows: [

@@ -36,8 +36,8 @@ from payscope.analytics.cache import ReportCache
 from payscope.analytics.service import get_salary_report, get_headcount_report
 
 UNSUPPORTED = (
-    "I can summarize workforce headcount, rank groups by employee count, or compare current annual gross base pay by "
-    "country, department, or job title within one currency."
+    "I can only help with PayScope reports. Ask about workforce headcount or current annual gross base pay "
+    "by country, department, or job title. Base pay reports use one currency at a time."
 )
 CLARIFICATION_QUESTIONS = {
     "currency": "Which currency should I use?",

@@ -4,7 +4,31 @@ from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 from payscope.agents.language import RunLimits, WorkflowFailure
-from payscope.agents.workflow import Outcome, PayWorkflow, TurnInput
+from payscope.agents.workflow import UNSUPPORTED, Outcome, PayWorkflow, TurnInput
+
+
+def test_unsupported_request_stops_before_report_generation():
+    analyst = Mock()
+    provider = SimpleNamespace(
+        model="bolt",
+        strong_model="super",
+        chat_completions=False,
+        agents=Mock(return_value=(analyst, Mock())),
+    )
+    flow = PayWorkflow(None, provider, uuid4(), uuid4(), {}, RunLimits())
+    flow.event = AsyncMock()
+    flow.run_tool = AsyncMock()
+    flow.budget.invoke = AsyncMock(
+        return_value=SimpleNamespace(
+            messages=[], text='{"outcome":"unsupported","field":null}'
+        )
+    )
+
+    outcome = asyncio.run(flow.run(TurnInput("Write a Python script for me.")))
+
+    assert outcome == Outcome("unsupported", UNSUPPORTED)
+    flow.run_tool.assert_not_awaited()
+    flow.budget.invoke.assert_awaited_once()
 
 
 def test_invalid_bolt_output_escalates_once_with_the_same_run_budget():

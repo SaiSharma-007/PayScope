@@ -104,6 +104,7 @@ function ReportCard({ report, conversation, runId, completed, savedId }) {
 
 function ChatThread({ id, onAccepted, onChanged }) {
   const { session, expire, sessionCache } = useAuth()
+  const invalidChat = id !== null && (!id || /[^a-z\d-]/i.test(id))
   const cacheKey = `${chatsPath}/${id}`
   const [initial] = useState(() => id ? sessionCache.get(cacheKey)?.data : null)
   const [question, setQuestion] = useState(initial?.draft || '')
@@ -175,10 +176,15 @@ function ChatThread({ id, onAccepted, onChanged }) {
     if (id && id === adoptedId.current) return
     const owned = new AbortController()
     controller.current = owned
-    if (id) {
+    if (id && !invalidChat) {
       loadChat(sessionCache, cacheKey)
+        .catch((problem) => {
+          if (problem.status !== 404 && problem.status !== 422) throw problem
+          if (!owned.signal.aborted) setStatus('unavailable')
+          return null
+        })
         .then(async (result) => {
-          if (owned.signal.aborted) return
+          if (!result || owned.signal.aborted) return
           setChat(result)
           setStatus(result.active_run_id ? 'streaming' : 'ready')
           if (result.active_run_id)
@@ -460,6 +466,16 @@ function ChatThread({ id, onAccepted, onChanged }) {
     const list = messages.current
     if (list && atEnd.current) list.scrollTop = list.scrollHeight
   }, [events, pending, chat])
+  if (invalidChat || status === 'unavailable') {
+    return (
+      <section className="agent-panel agent-thread" aria-label="Pay conversation">
+        <div className="agent-intro">
+          <h2>This conversation is unavailable</h2>
+          <p role="status">Start a new chat or choose a conversation from your history.</p>
+        </div>
+      </section>
+    )
+  }
   return (
     <Sheet open={reportOpen} onOpenChange={setReportOpen}>
     <section className="agent-panel agent-thread" aria-label="Pay conversation">
@@ -810,7 +826,7 @@ export default function AskPay() {
           )}
         </nav>
         <ChatThread
-          key={id && id !== adopted ? id : `new-${newChat}`}
+          key={id !== null && id !== adopted ? `chat:${id}` : `new-${newChat}`}
           id={id}
           onAccepted={(chat) => {
             setAdopted(chat)

@@ -4,6 +4,7 @@ from uuid import UUID
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Query, Response
 
+from payscope.agents.api import problem
 from payscope.agents.runs import ACTIVE
 from payscope.agents.schemas import (
     ChatMessage,
@@ -67,7 +68,7 @@ async def list_conversations(
 
 @router.get("/{conversation_id}")
 async def conversation_detail(
-    conversation_id: UUID,
+    conversation_id: str,
     session: Session,
     database: DatabaseSession,
     limit: PageSize = 20,
@@ -75,6 +76,11 @@ async def conversation_detail(
         int | None, Query(gt=0, le=9_223_372_036_854_775_807)
     ] = None,
 ) -> ConversationDetail:
+    try:
+        chat_id = UUID(conversation_id)
+    except ValueError:
+        raise problem("CONVERSATION_NOT_FOUND") from None
+
     turns = sa.select(
         runs.c.id.label("run_id"),
         runs.c.turn_number,
@@ -82,7 +88,7 @@ async def conversation_detail(
         runs.c.parent_run_id,
         runs.c.status,
     ).where(
-        runs.c.conversation_id == conversation_id, runs.c.user_id == session.user_id
+        runs.c.conversation_id == chat_id, runs.c.user_id == session.user_id
     )
     if before_turn is not None:
         turns = turns.where(runs.c.turn_number < before_turn)
@@ -104,7 +110,7 @@ async def conversation_detail(
             messages.c.run_id == page.c.run_id,
         )
         .where(
-            conversations.c.id == conversation_id,
+            conversations.c.id == chat_id,
             conversations.c.user_id == session.user_id,
             conversations.c.deleted_at.is_(None),
         )
@@ -112,13 +118,7 @@ async def conversation_detail(
     )
     rows = result.mappings().all()
     if not rows:
-        raise HTTPException(
-            404,
-            detail={
-                "code": "CONVERSATION_NOT_FOUND",
-                "message": "Conversation not found.",
-            },
-        )
+        raise problem("CONVERSATION_NOT_FOUND")
 
     by_turn = {}
     for row in rows:
