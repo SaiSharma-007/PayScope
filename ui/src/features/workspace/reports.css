@@ -132,6 +132,12 @@
 }
 
 .insight-report-heading { margin-block-end: 12px; }
+.insight-report-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 16px;
+}
 .insight-report-heading h2 { font-size: 23px; letter-spacing: -.035em; scroll-margin-block-start: 100px; }
 .insight-report-heading p, .insight-panel-heading p, .insight-empty p {
   margin-block: 5px 0;

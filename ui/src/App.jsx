@@ -57,7 +57,7 @@ function Pages() {
       '/overview': 'Overview',
       '/insights': 'Salary insights',
       '/insights/ask': 'Ask about pay',
-      '/insights/base-pay': 'Annual base pay',
+      '/insights/base-pay': 'Current annual base pay',
       '/admin/agent-prompts': 'Prompt catalog',
       '/admin/agent-runs': 'Agent observability',
       '/activity': 'Activity',

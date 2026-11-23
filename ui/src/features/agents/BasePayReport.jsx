@@ -22,6 +22,9 @@ const filters = [
 export default function BasePayReport() {
   const [params] = useSearchParams()
   const headcount = params.get('report_type') === 'workforce_headcount'
+  const fromInsights = params.get('from') === 'salary-insights'
+  const insightsSearch = new URLSearchParams(params)
+  insightsSearch.delete('from')
   const query = new URLSearchParams(
     filters.flatMap((key) => (params.has(key) ? [[key, params.get(key)]] : [])),
   ).toString()
@@ -52,11 +55,13 @@ export default function BasePayReport() {
       <header className="agent-heading">
         <div>
           <Link
-            to={`/insights/ask${params.has('chat') ? `?chat=${encodeURIComponent(params.get('chat'))}` : ''}`}
+            to={fromInsights
+              ? { pathname: '/insights', search: `?${insightsSearch}` }
+              : `/insights/ask${params.has('chat') ? `?chat=${encodeURIComponent(params.get('chat'))}` : ''}`}
           >
-            Back to Ask about pay
+            {fromInsights ? 'Back to Salary Insights' : 'Back to Ask about pay'}
           </Link>
-          <h1 tabIndex={-1}>{headcount ? 'Workforce headcount' : 'Annual base pay'}</h1>
+          <h1 tabIndex={-1}>{headcount ? 'Workforce headcount' : 'Current annual base pay'}</h1>
         </div>
       </header>
       <section className="agent-panel">

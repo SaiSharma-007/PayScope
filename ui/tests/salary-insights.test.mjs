@@ -308,6 +308,40 @@ async function select(page, field, label) {
   await page.getByRole('option', { name: label, exact: true }).click()
 }
 
+test('base-pay summary carries workforce filters and returns to the same insight', async () => {
+  const filters = {
+    country_code: 'IN', department_id: '1', job_title_id: '3',
+    currency_code: 'INR', group_by: 'job_title',
+  }
+  const insight = new URLSearchParams({ ...filters, year: '2025' })
+  await withFixture(async (page) => {
+    await page.goto(`${origin}/insights?${insight}`)
+    const summary = page.getByRole('link', { name: 'View base-pay summary' })
+    await summary.focus()
+    await summary.press('Enter')
+    await page.getByRole('heading', { name: 'Current annual base pay' }).waitFor()
+    const results = page.getByRole('table')
+    for (const amount of ['80.00', '100.00', '110.00', '145.00']) {
+      await results.getByRole('cell', { name: amount, exact: true }).waitFor()
+    }
+    await page.getByRole('link', { name: 'Back to Salary Insights' }).click()
+    await page.getByRole('heading', { name: 'Pay distribution' }).waitFor()
+    const returned = new URL(page.url()).searchParams
+    for (const [key, value] of insight) assert.equal(returned.get(key), value)
+  }, {
+    viewport: { width: 390, height: 844 },
+    handlePath: async (route, url) => {
+      if (url.pathname !== '/api/analytics/salary-summary') return false
+      assert.deepEqual(Object.fromEntries(url.searchParams), filters)
+      await route.fulfill({ json: { revision: 5, rows: [{
+        group_id: 3, group_name: roles[0].name, currency_code: 'INR',
+        headcount: 10, minimum: '80.00', median: '100.00', mean: '110.00', maximum: '145.00',
+      }] } })
+      return true
+    },
+  })
+})
+
 test('shared filters, all eight views, and keyboard and pointer chart values', async () => {
   await withFixture(async (page, requests) => {
     await page.goto(

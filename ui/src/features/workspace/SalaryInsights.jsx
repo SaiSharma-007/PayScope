@@ -688,9 +688,19 @@ export default function SalaryInsights() {
       >
         <div className="insight-report-heading">
           <div>
-            <h2 id="insight-report-title" ref={reportTitle} tabIndex={-1}>
-              {title}
-            </h2>
+            <div className="insight-report-title-row">
+              <h2 id="insight-report-title" ref={reportTitle} tabIndex={-1}>
+                {title}
+              </h2>
+              {insight === 'pay_distribution' && (
+                <Link className="insight-text-button" to={{
+                  pathname: '/insights/base-pay',
+                  search: `?${query}&from=salary-insights`,
+                }}>
+                  View base-pay summary <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              )}
+            </div>
             <p className="insight-view-description">{VIEW_HELP[insight]}</p>
             <p role="status">{status}</p>
           </div>
